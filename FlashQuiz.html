@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcards &amp; Quiz Builder</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f0f0f0;
+  --shell: #f0f0f0;
+  --panel: #f0f0f0;
+  --panel-2: #e5f1fb;
+  --panel-3: #ffffff;
+  --border: #adadad;
+  --text: #111111;
+  --muted: #555555;
+  --accent: #0078d7;
+  --accent-2: #005a9e;
+  --shadow: none;
+  --radius: 2px;
+
+  /* Lava lamp frame & character variables */
+  --lamp-bg: #ffffff;
+  --lamp-border: var(--border);
+  --lamp-radius: var(--radius);
+  --lamp-shadow: none;
+  --lamp-backdrop: none;
+  --lamp-filter: none;
+  --metal: #8e54a8;
+  --metal-edge: #532c66;
+  --metal-highlight: #b67fd0;
+  --liquid: #f6b286;
+  --lava: #8e184e;
+  --glass-edge: #532c66;
+  --aero: #3ac9df;
+  --aurora: #28d9b2;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 "Segoe UI", Tahoma, Arial, sans-serif;
+  padding: 20px;
+}
+
+button, input, textarea { font: inherit; }
+
+button {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  color: var(--text);
+  background: #e1e1e1;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease;
+}
+button:hover { background: #e5f1fb; border-color: var(--accent); }
+button:active { background: #cce4f7; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.primary { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+input[type="text"], textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: var(--panel-3);
+  color: var(--text);
+  outline: none;
+}
+input[type="text"]:focus, textarea:focus {
+  border-color: var(--accent);
+}
+textarea {
+  resize: vertical;
+  min-height: 66px;
+}
+
+.app {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.window-shell {
+  background: var(--shell);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px 20px;
+  box-shadow: var(--shadow);
+}
+
+/* Top bar inside the window shell */
+header.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.toolbar-left, .toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.menu-wrap {
+  position: relative;
+}
+.deck-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.deck-meta label {
+  color: var(--muted);
+  font-size: .85rem;
+  white-space: nowrap;
+}
+.deck-meta input {
+  width: 205px;
+  padding: 5px 8px;
+}
+.deck-stats {
+  color: var(--muted);
+  font-size: .82rem;
+  white-space: nowrap;
+}
+
+.dropdown-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  min-width: 215px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px;
+  display: none;
+  gap: 3px;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+.dropdown-menu.open { display: grid; }
+.dropdown-menu button { text-align: left; background: transparent; border-color: transparent; padding: 5px 10px; font-size: .86rem; }
+.dropdown-menu button:hover { background: var(--panel-2); border-color: var(--border); }
+.dropdown-menu button[aria-pressed="true"] { border-color: var(--accent); background: var(--panel-2); font-weight: 600; }
+.menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 4px;
+  opacity: .6;
+}
+
+/* 3-Column WinForms Workspace */
+.winforms-workspace {
+  display: grid;
+  grid-template-columns: 270px minmax(340px, 1fr) 205px;
+  gap: 18px;
+  align-items: start;
+  justify-content: center;
+}
+
+/* Left Column: Master Deck > Study Deck */
+.decks-column {
+  display: flex;
+  flex-direction: column;
+}
+.decks-pair {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: stretch;
+}
+.deck-box-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.col-title {
+  text-align: center;
+  font-weight: 400;
+  font-size: .95rem;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.card-list {
+  height: 330px;
+  overflow-y: auto;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.transfer-col {
+  display: flex;
+  align-items: center;
+  padding-top: 24px;
+}
+.transfer-btn {
+  padding: 6px 9px;
+  min-width: 30px;
+  font-weight: 600;
+}
+.deck-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: start;
+}
+.left-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.left-btns button, .right-btns button {
+  width: 100%;
+  padding: 6px 6px;
+  font-size: .88rem;
+}
+.right-btns {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.sticky-notes-art {
+  width: 112px;
+  height: 105px;
+  margin-top: 2px;
+  user-select: none;
+}
+
+.list-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  user-select: none;
+}
+.list-item:hover {
+  background: var(--panel-2);
+  border-color: transparent;
+}
+.list-item.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+.list-item.active .item-preview {
+  color: #e8f4ff;
+}
+.list-item.chosen:not(.active) {
+  outline: 1px dashed var(--accent);
+  background: var(--panel-2);
+}
+.list-item .item-title {
+  display: block;
+  font-weight: 600;
+  font-size: .8rem;
+}
+.list-item .item-preview {
+  display: block;
+  color: var(--muted);
+  font-size: .76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 18px 8px;
+  font-size: .8rem;
+}
+
+/* Center Column: Question / Answer / 3 WrongAnswers */
+.editor-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.section-heading {
+  text-align: center;
+  font-size: .95rem;
+  font-weight: 400;
+  margin: 0;
+  color: var(--text);
+}
+.sub-heading {
+  text-align: center;
+  font-size: .9rem;
+  font-weight: 400;
+  margin: 8px 0 0;
+  color: var(--text);
+}
+.editor-column textarea {
+  height: 76px;
+}
+.editor-footer-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: .78rem;
+  margin-top: 2px;
+}
+
+/* Right Column: Lava Lamp + Study Flashcards + Quiz Me */
+.media-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 24px;
+}
+.lavalamp-frame {
+  width: 100%;
+  height: 365px;
+  background: var(--lamp-bg);
+  border: 1px solid var(--lamp-border);
+  border-radius: var(--lamp-radius);
+  box-shadow: var(--lamp-shadow);
+  backdrop-filter: var(--lamp-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 8px;
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.lava-art {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  filter: var(--lamp-filter);
+  transition: filter .2s ease;
+}
+.lamp-hardware path, .lamp-hardware ellipse {
+  fill: var(--metal);
+  stroke: var(--metal-edge);
+  stroke-width: 2.5;
+}
+.lamp-hardware .base-highlight {
+  fill: var(--metal-highlight);
+  stroke: none;
+  opacity: .55;
+}
+.glass-outline {
+  fill: url(#glassFill);
+  stroke: var(--glass-edge);
+  stroke-width: 3;
+}
+.liquid-fill {
+  fill: var(--liquid);
+  opacity: .58;
+}
+
+/* More organic, lava-like motion */
+.blob {
+  fill: var(--lava);
+  filter: url(#softGlow);
+}
+.blob-a { animation: lavaPlumeA 9s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.blob-b { animation: lavaPlumeB 7.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.blob-c { animation: lavaPlumeC 6.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.blob-d { animation: lavaPlumeB 8.4s ease-in-out infinite reverse; transform-box: fill-box; transform-origin: center; }
+
+@keyframes lavaPlumeA {
+  0%   { transform: translate(0px, 16px) scale(1.08, 0.88); }
+  25%  { transform: translate(5px, -34px) scale(0.92, 1.14); }
+  50%  { transform: translate(-4px, -110px) scale(1.04, 0.96); }
+  75%  { transform: translate(-7px, -54px) scale(0.94, 1.10); }
+  100% { transform: translate(0px, 16px) scale(1.08, 0.88); }
+}
+@keyframes lavaPlumeB {
+  0%   { transform: translate(-4px, 34px) scale(0.9, 1.08); }
+  30%  { transform: translate(7px, -28px) scale(1.12, 0.9); }
+  60%  { transform: translate(3px, -79px) scale(0.88, 1.15); }
+  85%  { transform: translate(-8px, -42px) scale(1.06, 0.94); }
+  100% { transform: translate(-4px, 34px) scale(0.9, 1.08); }
+}
+@keyframes lavaPlumeC {
+  0%   { transform: translate(6px, 68px) scale(0.86, 1.12); }
+  35%  { transform: translate(-7px, 18px) scale(1.14, 0.88); }
+  70%  { transform: translate(4px, -50px) scale(0.95, 1.08); }
+  100% { transform: translate(6px, 68px) scale(0.86, 1.12); }
+}
+
+/* Space Jam basketballs bonking around in the chamber */
+.ball { fill: #f47a18; stroke: #171717; stroke-width: 2; }
+.ball path { fill: none; stroke: #171717; stroke-width: 1.6; }
+.ball-one { animation: bonkOne 6.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ball-two { animation: bonkTwo 5.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ball-three { animation: bonkThree 5.1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes bonkOne {
+  0%   { transform: translate(-10px, 14px) rotate(-18deg); }
+  33%  { transform: translate(16px, -28px) rotate(45deg); }
+  66%  { transform: translate(-14px, -64px) rotate(110deg); }
+  100% { transform: translate(-10px, 14px) rotate(-18deg); }
+}
+@keyframes bonkTwo {
+  0%   { transform: translate(12px, 42px) rotate(20deg); }
+  35%  { transform: translate(-18px, -6px) rotate(-55deg); }
+  70%  { transform: translate(14px, -42px) rotate(-120deg); }
+  100% { transform: translate(12px, 42px) rotate(20deg); }
+}
+@keyframes bonkThree {
+  0%   { transform: translate(-8px, 78px) rotate(0deg); }
+  40%  { transform: translate(16px, 24px) rotate(75deg); }
+  75%  { transform: translate(-15px, -14px) rotate(150deg); }
+  100% { transform: translate(-8px, 78px) rotate(0deg); }
+}
+
+/* Stars bonking around in 80s Synth & Galaxy */
+.galaxy-stars { fill: #fff6b8; filter: url(#softGlow); transform-box: fill-box; transform-origin: center; }
+.theme-stars { fill: #ffffff; filter: url(#softGlow); transform-box: fill-box; transform-origin: center; }
+.star-a { animation: starBonkA 6.2s ease-in-out infinite, twinkle 2.4s ease-in-out infinite alternate; }
+.star-b { animation: starBonkB 5.4s ease-in-out infinite, twinkle 2.9s ease-in-out infinite alternate-reverse; }
+.star-c { animation: starBonkC 7.1s ease-in-out infinite, twinkle 2.1s ease-in-out infinite alternate; }
+@keyframes starBonkA {
+  0%   { transform: translate(-12px, 24px) rotate(0deg); }
+  33%  { transform: translate(18px, -22px) rotate(95deg); }
+  66%  { transform: translate(-16px, -54px) rotate(190deg); }
+  100% { transform: translate(-12px, 24px) rotate(360deg); }
+}
+@keyframes starBonkB {
+  0%   { transform: translate(14px, 46px) rotate(15deg); }
+  35%  { transform: translate(-18px, -8px) rotate(-85deg); }
+  70%  { transform: translate(12px, -38px) rotate(-175deg); }
+  100% { transform: translate(14px, 46px) rotate(15deg); }
+}
+@keyframes starBonkC {
+  0%   { transform: translate(-6px, 64px) rotate(-10deg); }
+  45%  { transform: translate(16px, 8px) rotate(110deg); }
+  80%  { transform: translate(-14px, -28px) rotate(220deg); }
+  100% { transform: translate(-6px, 64px) rotate(-10deg); }
+}
+@keyframes twinkle { from { opacity: .45; } to { opacity: 1; } }
+
+/* 5 Mice/Cursors bonking around randomly in Win95 & WinXP */
+.cursor-lava .mouse-item {
+  fill: #f4f4f4;
+  stroke: #111;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.mouse-1 { animation: mouseBonk1 5.8s ease-in-out infinite; }
+.mouse-2 { animation: mouseBonk2 6.6s ease-in-out infinite; }
+.mouse-3 { animation: mouseBonk3 5.2s ease-in-out infinite; }
+.mouse-4 { animation: mouseBonk4 7.0s ease-in-out infinite; }
+.mouse-5 { animation: mouseBonk5 6.1s ease-in-out infinite; }
+
+@keyframes mouseBonk1 {
+  0%   { transform: translate(-14px, 48px) rotate(-14deg); }
+  25%  { transform: translate(18px, 12px) rotate(18deg); }
+  50%  { transform: translate(-10px, -28px) rotate(-22deg); }
+  75%  { transform: translate(15px, -58px) rotate(12deg); }
+  100% { transform: translate(-14px, 48px) rotate(-14deg); }
+}
+@keyframes mouseBonk2 {
+  0%   { transform: translate(16px, 64px) rotate(16deg); }
+  30%  { transform: translate(-18px, 18px) rotate(-20deg); }
+  65%  { transform: translate(14px, -24px) rotate(24deg); }
+  100% { transform: translate(16px, 64px) rotate(16deg); }
+}
+@keyframes mouseBonk3 {
+  0%   { transform: translate(-12px, 18px) rotate(10deg); }
+  35%  { transform: translate(18px, -36px) rotate(-18deg); }
+  70%  { transform: translate(-16px, -62px) rotate(15deg); }
+  100% { transform: translate(-12px, 18px) rotate(10deg); }
+}
+@keyframes mouseBonk4 {
+  0%   { transform: translate(10px, 76px) rotate(-12deg); }
+  40%  { transform: translate(-17px, 28px) rotate(22deg); }
+  75%  { transform: translate(16px, -16px) rotate(-15deg); }
+  100% { transform: translate(10px, 76px) rotate(-12deg); }
+}
+@keyframes mouseBonk5 {
+  0%   { transform: translate(-4px, -10px) rotate(20deg); }
+  33%  { transform: translate(17px, 38px) rotate(-24deg); }
+  66%  { transform: translate(-16px, 68px) rotate(14deg); }
+  100% { transform: translate(-4px, -10px) rotate(20deg); }
+}
+
+/* 90s & Vaporwave Shapes */
+.shape-lava { fill: var(--lava); stroke: #fff; stroke-width: 1.5; transform-box: fill-box; transform-origin: center; }
+.shape-a { animation: shapeDriftA 7.2s ease-in-out infinite; }
+.shape-b { animation: shapeDriftB 6.1s ease-in-out infinite; }
+.shape-c { animation: shapeDriftC 8.0s ease-in-out infinite; }
+@keyframes shapeDriftA {
+  0%   { transform: translate(-10px, 58px) rotate(-12deg) scale(0.95); }
+  50%  { transform: translate(14px, -34px) rotate(24deg) scale(1.08); }
+  100% { transform: translate(-10px, 58px) rotate(-12deg) scale(0.95); }
+}
+@keyframes shapeDriftB {
+  0%   { transform: translate(14px, 36px) rotate(15deg) scale(1.05); }
+  50%  { transform: translate(-15px, -46px) rotate(-25deg) scale(0.92); }
+  100% { transform: translate(14px, 36px) rotate(15deg) scale(1.05); }
+}
+@keyframes shapeDriftC {
+  0%   { transform: translate(-8px, -12px) rotate(8deg) scale(1.0); }
+  50%  { transform: translate(12px, 66px) rotate(-20deg) scale(1.07); }
+  100% { transform: translate(-8px, -12px) rotate(8deg) scale(1.0); }
+}
+
+/* Organic Flowers drifting & bobbing */
+.organic-flowers { transform-box: fill-box; transform-origin: center; }
+.flower-a { animation: flowerFloatA 7.4s ease-in-out infinite; }
+.flower-b { animation: flowerFloatB 6.2s ease-in-out infinite; }
+.flower-c { animation: flowerFloatC 8.1s ease-in-out infinite; }
+@keyframes flowerFloatA {
+  0%   { transform: translate(-10px, 64px) rotate(-14deg); }
+  50%  { transform: translate(14px, -36px) rotate(18deg); }
+  100% { transform: translate(-10px, 64px) rotate(-14deg); }
+}
+@keyframes flowerFloatB {
+  0%   { transform: translate(14px, 28px) rotate(12deg); }
+  50%  { transform: translate(-15px, -48px) rotate(-20deg); }
+  100% { transform: translate(14px, 28px) rotate(12deg); }
+}
+@keyframes flowerFloatC {
+  0%   { transform: translate(-6px, -16px) rotate(10deg); }
+  50%  { transform: translate(12px, 62px) rotate(-18deg); }
+  100% { transform: translate(-6px, -16px) rotate(10deg); }
+}
+
+/* Accumulative bottom-to-top and top-to-bottom pixel/gameboy lava */
+.pixel-lava, .gameboy-lava {
+  shape-rendering: crispEdges;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.pixel-lava { fill: var(--lava); }
+.gameboy-lava { fill: #306230; }
+
+.px-1 { animation: pxAccumulate1 9.6s steps(8, end) infinite; }
+.px-2 { animation: pxAccumulate2 8.0s steps(7, end) infinite; }
+.px-3 { animation: pxAccumulate3 10.4s steps(9, end) infinite; }
+.px-4 { animation: pxAccumulate4 8.8s steps(8, end) infinite; }
+
+@keyframes pxAccumulate1 {
+  0%   { transform: translate(0px, 88px) scale(1.15, 0.85); }
+  16%  { transform: translate(4px, 56px) scale(0.95, 1.12); }
+  33%  { transform: translate(-5px, 20px) scale(1.08, 0.92); }
+  50%  { transform: translate(3px, -24px) scale(0.92, 1.15); }
+  66%  { transform: translate(-4px, 12px) scale(1.05, 0.94); }
+  83%  { transform: translate(5px, 52px) scale(0.96, 1.08); }
+  100% { transform: translate(0px, 88px) scale(1.15, 0.85); }
+}
+@keyframes pxAccumulate2 {
+  0%   { transform: translate(6px, 68px) scale(0.92, 1.1); }
+  20%  { transform: translate(-6px, 26px) scale(1.12, 0.88); }
+  40%  { transform: translate(5px, -18px) scale(0.94, 1.12); }
+  55%  { transform: translate(-3px, -54px) scale(1.08, 0.9); }
+  78%  { transform: translate(6px, 8px) scale(0.95, 1.06); }
+  100% { transform: translate(6px, 68px) scale(0.92, 1.1); }
+}
+@keyframes pxAccumulate3 {
+  0%   { transform: translate(-6px, 28px) scale(1.06, 0.94); }
+  25%  { transform: translate(6px, -22px) scale(0.92, 1.14); }
+  50%  { transform: translate(-4px, -62px) scale(1.1, 0.88); }
+  75%  { transform: translate(5px, -10px) scale(0.94, 1.08); }
+  100% { transform: translate(-6px, 28px) scale(1.06, 0.94); }
+}
+@keyframes pxAccumulate4 {
+  0%   { transform: translate(4px, -28px) scale(1.08, 0.9); }
+  25%  { transform: translate(-6px, 18px) scale(0.92, 1.12); }
+  50%  { transform: translate(5px, 66px) scale(1.14, 0.86); }
+  75%  { transform: translate(-5px, 16px) scale(0.95, 1.08); }
+  100% { transform: translate(4px, -28px) scale(1.08, 0.9); }
+}
+
+.aero-details { fill: var(--aero); stroke: none; transform-box: fill-box; transform-origin: center; animation: lavaPlumeA 7.6s ease-in-out infinite; }
+.y2k-lava { fill: url(#aeroFill); stroke: #fff; stroke-width: 2; filter: url(#softGlow); transform-box: fill-box; transform-origin: center; animation: lavaPlumeB 6.8s ease-in-out infinite; }
+.aurora-lava { fill: var(--aurora); filter: url(#softGlow); transform-box: fill-box; transform-origin: center; animation: auroraWave 8.2s ease-in-out infinite; }
+@keyframes auroraWave {
+  0%   { transform: translate(-6px, 24px) skewX(-5deg) scale(1.05, 0.92); }
+  50%  { transform: translate(7px, -28px) skewX(6deg) scale(0.94, 1.1); }
+  100% { transform: translate(-6px, 24px) skewX(-5deg) scale(1.05, 0.92); }
+}
+
+.mustache-face .eye { fill: #141414; }
+.mustache-face .mustache { fill: #141414; }
+.glass-shine { pointer-events: none; }
+
+.media-column button {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: .95rem;
+}
+
+/* Quiz & Flashcard Study Views */
+.quiz-view {
+  display: none;
+  max-width: 780px;
+  margin: 0 auto;
+}
+.quiz-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+.quiz-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.quiz-top h2 { font-size: 1.1rem; margin: 0; }
+.progress { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.progress-track {
+  height: 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width .2s ease;
+}
+.question-number {
+  color: var(--accent);
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.question-text {
+  font-size: 1.24rem;
+  line-height: 1.4;
+  font-weight: 600;
+  margin: 0 0 18px;
+  white-space: pre-wrap;
+}
+.answer-list { display: grid; gap: 10px; }
+.answer-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-3);
+  text-align: left;
+  cursor: pointer;
+}
+.answer-option:hover { border-color: var(--accent); background: var(--panel-2); }
+.answer-option.selected {
+  border-color: var(--accent);
+  background: var(--panel-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.answer-letter {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .8rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.answer-option.selected .answer-letter {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.answer-text { padding-top: 2px; white-space: pre-wrap; }
+.quiz-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 20px;
+}
+.quiz-actions .right-actions { display: flex; gap: 8px; }
+.quiz-hint { color: var(--muted); font-size: .8rem; margin-top: 12px; }
+
+/* Flashcard Flip Card */
+.flashcard-stage {
+  min-height: 240px;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+.flashcard-stage:hover { border-color: var(--accent); }
+.flashcard-side-badge {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.flashcard-body {
+  font-size: 1.35rem;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+.result-view { display: none; }
+.result-score { font-size: 2.1rem; font-weight: 800; color: var(--accent); margin: 4px 0 0; }
+.result-message { color: var(--muted); margin: 0 0 18px; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.missed-list { display: grid; gap: 8px; margin-top: 14px; }
+.missed-item {
+  border: 1px solid var(--border);
+  background: var(--panel-3);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.missed-item strong { display: block; margin-bottom: 4px; }
+.missed-item span { display: block; color: var(--muted); font-size: .85rem; }
+
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%) translateY(18px);
+  opacity: 0;
+  pointer-events: none;
+  background: #222;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 9px 14px;
+  border-radius: 6px;
+  transition: .2s ease;
+  z-index: 60;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ================= WINDOW THEME PRESETS ================= */
+body[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #10151d; --shell: #192330; --panel: #192330; --panel-2: #202d3c; --panel-3: #111a24;
+  --border: #34475b; --text: #e8eef5; --muted: #9eafc1; --accent: #65c7d5; --accent-2: #2f8998;
+  --shadow: 0 14px 36px rgba(0,0,0,.35); --radius: 8px;
+  background: radial-gradient(circle at top right, #1b2b3a 0, var(--bg) 42rem);
+}
+body[data-theme="dark"] button { background: #27384a; color: var(--text); border-color: var(--border); }
+body[data-theme="dark"] button:hover { background: #324a60; border-color: #55738e; }
+body[data-theme="dark"] button.primary { background: #236f7c; border-color: #3b9cab; box-shadow: none; }
+body[data-theme="dark"] .list-item.active { background: #1b3542; color: var(--text); border-color: var(--accent); }
+
+body[data-theme="quizlet"] {
+  color-scheme: light;
+  --bg: #f6f7fb; --shell: #ffffff; --panel: #ffffff; --panel-2: #eef0f7; --panel-3: #ffffff;
+  --border: #d9dce7; --text: #25283a; --muted: #73798d; --accent: #4255d4; --accent-2: #3446bd;
+  --shadow: 0 10px 28px rgba(35,45,90,.09); --radius: 10px;
+}
+body[data-theme="quizlet"] button { background: #eef0fa; color: #25283a; border-color: #d4d8e8; }
+body[data-theme="quizlet"] button.primary { background: #4255d4; color: #fff; border-color: #4255d4; box-shadow: none; }
+
+body[data-theme="winforms"] {
+  color-scheme: light;
+  --bg: #f0f0f0; --shell: #f0f0f0; --panel: #f0f0f0; --panel-2: #e5f1fb; --panel-3: #ffffff;
+  --border: #adadad; --text: #111111; --muted: #555555; --accent: #0078d7; --accent-2: #005a9e;
+  --shadow: 0 4px 16px rgba(0,0,0,.06); --radius: 2px;
+}
+
+body[data-theme="win95"] {
+  color-scheme: light;
+  --bg: #008080; --shell: #c0c0c0; --panel: #c0c0c0; --panel-2: #d4d0c8; --panel-3: #ffffff;
+  --border: #808080; --text: #111111; --muted: #333333; --accent: #000080; --accent-2: #000080;
+  --shadow: 3px 3px 0 #222; --radius: 0px; font-family: Tahoma, Arial, sans-serif;
+}
+body[data-theme="win95"] .window-shell { background: #c0c0c0; border: 2px outset #fff; }
+body[data-theme="win95"] header.topbar { border-bottom: 2px groove #fff; }
+body[data-theme="win95"] button { border-radius: 0; background: #c0c0c0; color: #111; border: 2px outset #fff; box-shadow: none; }
+body[data-theme="win95"] button:active { border-style: inset; }
+body[data-theme="win95"] .card-list, body[data-theme="win95"] input[type="text"], body[data-theme="win95"] textarea { border: 2px inset #fff; }
+
+body[data-theme="frutiger"] {
+  color-scheme: light;
+  --bg: #b9e8f4; --shell: rgba(239,252,255,.84); --panel: rgba(239,252,255,.82); --panel-2: rgba(209,241,250,.9); --panel-3: rgba(255,255,255,.88);
+  --border: #8bcbdc; --text: #12445a; --muted: #397287; --accent: #168fbd; --accent-2: #0879a5;
+  --shadow: 0 14px 32px rgba(18,110,145,.2); --radius: 14px;
+  background: linear-gradient(145deg, #d9f7ff, #9ed9ec 55%, #d2f2f7);
+}
+body[data-theme="frutiger"] .window-shell { backdrop-filter: blur(8px); }
+body[data-theme="frutiger"] button { background: linear-gradient(180deg, #faffff, #bceaf5); color: #12445a; border-color: #80c8dc; box-shadow: none; }
+
+body[data-theme="winxp"] {
+  color-scheme: light;
+  --bg: #3a6ea5; --shell: #ece9d8; --panel: #ece9d8; --panel-2: #d8e4f8; --panel-3: #ffffff;
+  --border: #7f9db9; --text: #111111; --muted: #4a5568; --accent: #1c5ed6; --accent-2: #0f3f9e;
+  --shadow: 0 8px 24px rgba(0,24,68,.35); --radius: 4px; font-family: Tahoma, "Trebuchet MS", sans-serif;
+  background: radial-gradient(circle at 20% 20%, #5b9bd5, #245edb 65%, #1941a5);
+}
+body[data-theme="winxp"] .window-shell { border: 2px solid #0054e3; box-shadow: inset 0 2px 0 #4c93ff, 0 10px 26px rgba(0,0,0,.35); }
+body[data-theme="winxp"] button { background: linear-gradient(180deg, #ffffff 0%, #f1efe2 55%, #dcd6c2 100%); border: 1px solid #003c74; border-radius: 3px; color: #111; }
+body[data-theme="winxp"] button:hover { border-color: #e59700; box-shadow: inset 0 0 0 1px #ffcb2f; }
+
+body[data-theme="win7"] {
+  color-scheme: light;
+  --bg: #255b8a; --shell: rgba(235,243,252,.82); --panel: rgba(235,243,252,.85); --panel-2: rgba(203,224,245,.9); --panel-3: rgba(255,255,255,.92);
+  --border: #89a8c7; --text: #152636; --muted: #43617d; --accent: #1e78c8; --accent-2: #125696;
+  --shadow: 0 14px 36px rgba(8,28,52,.42); --radius: 5px;
+  background: radial-gradient(circle at 70% 25%, #5eb3e8 0%, #2468a6 52%, #13395e 100%);
+}
+body[data-theme="win7"] .window-shell { backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.75); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 14px 36px rgba(8,28,52,.45); }
+body[data-theme="win7"] button { background: linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(226,238,250,.75) 50%, rgba(196,218,238,.88) 51%, rgba(220,234,248,.92) 100%); border-color: #7b9bb8; color: #152636; }
+
+body[data-theme="nineties"] {
+  color-scheme: light;
+  --bg: #fff3c4; --shell: #ffffff; --panel: #fff9e6; --panel-2: #ffe6f0; --panel-3: #ffffff;
+  --border: #141414; --text: #141414; --muted: #444444; --accent: #ff2a85; --accent-2: #0099ff;
+  --shadow: 5px 5px 0 #141414; --radius: 0px; font-family: "Comic Sans MS", "Trebuchet MS", Tahoma, sans-serif;
+  background-color: #fff3c4;
+  background-image:
+    radial-gradient(#ff2a85 2.5px, transparent 2.6px),
+    radial-gradient(#0099ff 2.5px, transparent 2.6px),
+    linear-gradient(45deg, transparent 46%, #ffbe0b 47%, #ffbe0b 53%, transparent 54%);
+  background-size: 48px 48px, 64px 64px, 90px 90px;
+  background-position: 0 0, 22px 18px, 10px 30px;
+}
+body[data-theme="nineties"] .window-shell { border: 3px solid #141414; }
+body[data-theme="nineties"] button { background: #ffbe0b; color: #141414; border: 2px solid #141414; box-shadow: 2px 2px 0 #141414; font-weight: 700; }
+body[data-theme="nineties"] button.primary { background: #00d2ff; box-shadow: 2px 2px 0 #141414; }
+body[data-theme="nineties"] button:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #141414; }
+
+body[data-theme="y2k"] {
+  color-scheme: light;
+  --bg: #e7dcff; --shell: rgba(255,255,255,.78); --panel: rgba(247,240,255,.82); --panel-2: #ffd6f2; --panel-3: rgba(255,255,255,.92);
+  --border: #b89ce6; --text: #2a184d; --muted: #684f96; --accent: #e60099; --accent-2: #00a8e8;
+  --shadow: 0 12px 30px rgba(138,68,214,.25); --radius: 16px;
+  background: linear-gradient(135deg, #c7f9ff 0%, #f5d0fe 48%, #a5f3fc 100%);
+}
+body[data-theme="y2k"] .window-shell { backdrop-filter: blur(10px); border: 2px solid #ffffff; box-shadow: 0 0 0 2px #d8b4fe, 0 14px 32px rgba(130,60,200,.24); }
+body[data-theme="y2k"] button { background: linear-gradient(180deg, #ffffff 0%, #f3e8ff 50%, #e9d5ff 51%, #fae8ff 100%); border: 1px solid #c084fc; border-radius: 999px; color: #2a184d; padding-inline: 14px; }
+body[data-theme="y2k"] button.primary { background: linear-gradient(180deg, #ff66cc 0%, #d9008c 100%); color: #fff; border-color: #ff99dd; box-shadow: none; }
+
+body[data-theme="eighties"] {
+  color-scheme: dark;
+  --bg: #16092b; --shell: #220e42; --panel: #29114f; --panel-2: #39186b; --panel-3: #140726;
+  --border: #ff2e93; --text: #fff5fb; --muted: #d8a5ff; --accent: #00f5d4; --accent-2: #ff2e93;
+  --shadow: 0 0 28px rgba(255,46,147,.32); --radius: 4px;
+  background: linear-gradient(180deg, #120524 0%, #2d0c4e 55%, #6b145b 100%);
+}
+body[data-theme="eighties"] button { background: #341463; color: #00f5d4; border: 1px solid #ff2e93; box-shadow: 0 0 8px rgba(255,46,147,.25); }
+body[data-theme="eighties"] button.primary { background: #ff2e93; color: #fff; border-color: #00f5d4; }
+
+body[data-theme="vaporwave"] {
+  color-scheme: dark;
+  --bg: #261447; --shell: rgba(53,27,92,.86); --panel: rgba(66,34,112,.88); --panel-2: #552c8e; --panel-3: #1e0f38;
+  --border: #ff71ce; --text: #fff0fa; --muted: #b8f2ff; --accent: #01cdfe; --accent-2: #ff71ce;
+  --shadow: 0 14px 36px rgba(15,5,35,.55); --radius: 6px;
+  background: linear-gradient(160deg, #ff71ce 0%, #b967ff 38%, #01cdfe 100%);
+}
+body[data-theme="vaporwave"] button { background: #3b1c69; color: #fff0fa; border: 1px solid #01cdfe; }
+body[data-theme="vaporwave"] button.primary { background: #ff71ce; color: #1b0c33; border-color: #fff0fa; font-weight: 700; box-shadow: none; }
+
+body[data-theme="galaxy"] {
+  color-scheme: dark;
+  --bg: #070916; --shell: rgba(16,20,46,.88); --panel: rgba(22,28,62,.88); --panel-2: #283270; --panel-3: #0b0e21;
+  --border: #5c6bc0; --text: #eef2ff; --muted: #a5b4fc; --accent: #c084fc; --accent-2: #6366f1;
+  --shadow: 0 16px 40px rgba(0,0,0,.65); --radius: 10px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(168,85,247,.34), transparent 45%),
+    radial-gradient(circle at 82% 72%, rgba(56,189,248,.28), transparent 45%),
+    radial-gradient(circle at 50% 45%, rgba(99,102,241,.22), transparent 60%),
+    #070916;
+}
+body[data-theme="galaxy"] button { background: #1e2759; color: #eef2ff; border-color: #6366f1; }
+body[data-theme="galaxy"] button.primary { background: linear-gradient(90deg, #7e22ce, #4f46e5); color: #fff; border-color: #c084fc; box-shadow: none; }
+
+body[data-theme="spacejam"] {
+  color-scheme: dark;
+  --bg: #050818; --shell: #0d1538; --panel: #131f4f; --panel-2: #1c2c6e; --panel-3: #070c24;
+  --border: #ff7b00; --text: #ffffff; --muted: #9ec5ff; --accent: #ff9500; --accent-2: #38bdf8;
+  --shadow: 0 0 30px rgba(255,123,0,.28); --radius: 8px;
+  background: radial-gradient(circle at 50% 0%, #1d358c 0%, #090f29 60%, #040612 100%);
+}
+body[data-theme="spacejam"] button { background: #1a2966; color: #fff; border: 1px solid #38bdf8; }
+body[data-theme="spacejam"] button.primary { background: linear-gradient(180deg, #ffaa00, #e65c00); color: #111; border-color: #ffd166; font-weight: 700; box-shadow: none; }
+
+body[data-theme="neon"] {
+  color-scheme: dark;
+  --bg: #090b10; --shell: #10141d; --panel: #151a26; --panel-2: #1d2436; --panel-3: #0b0e14;
+  --border: #00f0ff; --text: #f0f9ff; --muted: #94a3b8; --accent: #00f0ff; --accent-2: #ff007a;
+  --shadow: 0 0 24px rgba(0,240,255,.22); --radius: 6px;
+  background: #090b10;
+}
+body[data-theme="neon"] .window-shell { box-shadow: 0 0 0 1px rgba(255,0,122,.35), 0 0 26px rgba(0,240,255,.2); }
+body[data-theme="neon"] button { background: #141b29; color: #00f0ff; border: 1px solid #00f0ff; }
+body[data-theme="neon"] button:hover { background: #1c273b; box-shadow: 0 0 10px rgba(0,240,255,.4); }
+body[data-theme="neon"] button.primary { background: #ff007a; color: #fff; border-color: #ff5ca8; box-shadow: 0 0 12px rgba(255,0,122,.45); }
+
+body[data-theme="glass"] {
+  color-scheme: light;
+  --bg: #6366f1; --shell: rgba(255,255,255,.26); --panel: rgba(255,255,255,.28); --panel-2: rgba(255,255,255,.42); --panel-3: rgba(255,255,255,.55);
+  --border: rgba(255,255,255,.55); --text: #0f172a; --muted: #1e293b; --accent: #2563eb; --accent-2: #1d4ed8;
+  --shadow: 0 16px 40px rgba(15,23,42,.22); --radius: 16px;
+  background: linear-gradient(125deg, #a5b4fc 0%, #f0abfc 48%, #67e8f9 100%);
+}
+body[data-theme="glass"] .window-shell, body[data-theme="glass"] button, body[data-theme="glass"] .card-list, body[data-theme="glass"] input, body[data-theme="glass"] textarea {
+  backdrop-filter: blur(14px);
+}
+body[data-theme="glass"] button { background: rgba(255,255,255,.45); color: #0f172a; border-color: rgba(255,255,255,.7); }
+body[data-theme="glass"] button.primary { background: rgba(37,99,235,.85); color: #fff; border-color: rgba(255,255,255,.7); box-shadow: none; }
+
+body[data-theme="organic"] {
+  color-scheme: light;
+  --bg: #e9efe6; --shell: #f6f8f4; --panel: #eef3ea; --panel-2: #dde7d7; --panel-3: #ffffff;
+  --border: #9eb396; --text: #233322; --muted: #526850; --accent: #4a7c59; --accent-2: #355e41;
+  --shadow: 0 8px 24px rgba(35,51,34,.08); --radius: 14px;
+  background: radial-gradient(circle at top left, #dce8d5, #e9efe6 65%);
+}
+body[data-theme="organic"] button { background: #e1eadc; color: #233322; border-color: #8fa687; border-radius: 10px; }
+body[data-theme="organic"] button.primary { background: #4a7c59; color: #ffffff; border-color: #355e41; box-shadow: none; }
+
+body[data-theme="earth"] {
+  color-scheme: light;
+  --bg: #e6dccf; --shell: #f3ece2; --panel: #ebe2d5; --panel-2: #dcccb8; --panel-3: #fcf9f5;
+  --border: #b39b80; --text: #362619; --muted: #6e5541; --accent: #b85d3b; --accent-2: #8f4327;
+  --shadow: 0 10px 24px rgba(54,38,25,.1); --radius: 6px;
+  background: linear-gradient(150deg, #eadfd1, #d8c6b0);
+}
+body[data-theme="earth"] button { background: #e0d0bc; color: #362619; border-color: #a68b6e; }
+body[data-theme="earth"] button.primary { background: #b85d3b; color: #fff; border-color: #8f4327; box-shadow: none; }
+
+body[data-theme="aurora"] {
+  color-scheme: dark;
+  --bg: #0b132b; --shell: rgba(16,28,58,.78); --panel: rgba(21,37,74,.8); --panel-2: rgba(34,62,115,.85); --panel-3: rgba(9,17,38,.85);
+  --border: rgba(110,231,183,.45); --text: #ecfdf5; --muted: #a7f3d0; --accent: #34d399; --accent-2: #38bdf8;
+  --shadow: 0 16px 40px rgba(0,0,0,.45); --radius: 14px;
+  background:
+    radial-gradient(at 15% 20%, rgba(16,185,129,.42) 0px, transparent 50%),
+    radial-gradient(at 85% 25%, rgba(56,189,248,.38) 0px, transparent 50%),
+    radial-gradient(at 50% 85%, rgba(168,85,247,.36) 0px, transparent 55%),
+    #0b132b;
+}
+body[data-theme="aurora"] .window-shell { backdrop-filter: blur(12px); }
+body[data-theme="aurora"] button { background: rgba(20,42,78,.78); color: #ecfdf5; border-color: rgba(110,231,183,.5); }
+body[data-theme="aurora"] button.primary { background: linear-gradient(90deg, #10b981, #0ea5e9); color: #06202a; font-weight: 700; border-color: #a7f3d0; box-shadow: none; }
+
+body[data-theme="pixel"] {
+  color-scheme: light;
+  --bg: #2b2d42; --shell: #edf2f4; --panel: #edf2f4; --panel-2: #d8dee9; --panel-3: #ffffff;
+  --border: #111111; --text: #111111; --muted: #4a4e69; --accent: #ef233c; --accent-2: #d90429;
+  --shadow: 4px 4px 0 #111111; --radius: 0px; font-family: "Courier New", Courier, monospace;
+}
+body[data-theme="pixel"] .window-shell { border: 3px solid #111; }
+body[data-theme="pixel"] button, body[data-theme="pixel"] input, body[data-theme="pixel"] textarea, body[data-theme="pixel"] .card-list {
+  border-width: 2px; border-color: #111; border-radius: 0;
+}
+body[data-theme="pixel"] button { background: #8d99ae; color: #111; font-weight: 700; box-shadow: 2px 2px 0 #111; }
+body[data-theme="pixel"] button.primary { background: #ef233c; color: #fff; box-shadow: 2px 2px 0 #111; }
+
+body[data-theme="eightbit"] {
+  color-scheme: dark;
+  --bg: #202020; --shell: #2c2c2c; --panel: #383838; --panel-2: #4a4a4a; --panel-3: #101010;
+  --border: #fcfcfc; --text: #fcfcfc; --muted: #bcbcbc; --accent: #e40058; --accent-2: #0058f8;
+  --shadow: 4px 4px 0 #000000; --radius: 0px; font-family: "Courier New", Courier, monospace;
+}
+body[data-theme="eightbit"] .window-shell { border: 3px solid #fcfcfc; }
+body[data-theme="eightbit"] button, body[data-theme="eightbit"] input, body[data-theme="eightbit"] textarea, body[data-theme="eightbit"] .card-list {
+  border: 2px solid #fcfcfc; border-radius: 0;
+}
+body[data-theme="eightbit"] button { background: #0058f8; color: #fcfcfc; font-weight: 700; box-shadow: 2px 2px 0 #000; }
+body[data-theme="eightbit"] button.primary { background: #e40058; color: #fcfcfc; box-shadow: 2px 2px 0 #000; }
+
+body[data-theme="gameboy"] {
+  color-scheme: light;
+  --bg: #1f2b1b; --shell: #9bbc0f; --panel: #9bbc0f; --panel-2: #8bac0f; --panel-3: #cadc9f;
+  --border: #0f380f; --text: #0f380f; --muted: #306230; --accent: #0f380f; --accent-2: #306230;
+  --shadow: 4px 4px 0 #0f380f; --radius: 0px; font-family: "Courier New", Courier, monospace;
+}
+body[data-theme="gameboy"] .window-shell { border: 3px solid #0f380f; }
+body[data-theme="gameboy"] button, body[data-theme="gameboy"] input, body[data-theme="gameboy"] textarea, body[data-theme="gameboy"] .card-list {
+  border: 2px solid #0f380f; border-radius: 0;
+}
+body[data-theme="gameboy"] button { background: #8bac0f; color: #0f380f; font-weight: 700; box-shadow: 2px 2px 0 #0f380f; }
+body[data-theme="gameboy"] button.primary { background: #0f380f; color: #9bbc0f; box-shadow: none; }
+
+body[data-theme="ps2"] {
+  color-scheme: dark;
+  --bg: #040714; --shell: #0b1330; --panel: #101b42; --panel-2: #182861; --panel-3: #060a1c;
+  --border: #3b5bdb; --text: #e0e7ff; --muted: #8fa2e8; --accent: #4dabf7; --accent-2: #364fc7;
+  --shadow: 0 0 32px rgba(59,91,219,.35); --radius: 4px;
+  background: radial-gradient(circle at 50% 35%, #1d2f73 0%, #091029 55%, #03050e 100%);
+}
+body[data-theme="ps2"] button { background: #142254; color: #e0e7ff; border: 1px solid #4c6ef5; }
+body[data-theme="ps2"] button:hover { background: #1e327a; border-color: #74c0fc; }
+body[data-theme="ps2"] button.primary { background: linear-gradient(180deg, #3b5bdb, #233894); color: #fff; border-color: #74c0fc; box-shadow: none; }
+
+/* ================= LAVA LAMP LAYER VISIBILITY ================= */
+body[data-lamp-theme] .classic-bubbles,
+body[data-lamp-theme] .basketballs,
+body[data-lamp-theme] .galaxy-stars,
+body[data-lamp-theme] .cursor-lava,
+body[data-lamp-theme] .shape-lava,
+body[data-lamp-theme] .pixel-lava,
+body[data-lamp-theme] .aero-details,
+body[data-lamp-theme] .y2k-lava,
+body[data-lamp-theme] .aurora-lava,
+body[data-lamp-theme] .gameboy-lava,
+body[data-lamp-theme] .theme-stars,
+body[data-lamp-theme] .organic-flowers { display: none; }
+
+body[data-lamp-theme="winforms"] .classic-bubbles,
+body[data-lamp-theme="dark"] .classic-bubbles,
+body[data-lamp-theme="quizlet"] .classic-bubbles,
+body[data-lamp-theme="win7"] .classic-bubbles,
+body[data-lamp-theme="earth"] .classic-bubbles,
+body[data-lamp-theme="neon"] .classic-bubbles,
+body[data-lamp-theme="ps2"] .classic-bubbles { display: inline; }
+
+body[data-lamp-theme="organic"] .organic-flowers { display: inline; }
+
+body[data-lamp-theme="spacejam"] .basketballs { display: inline; }
+
+body[data-lamp-theme="galaxy"] .galaxy-stars,
+body[data-lamp-theme="galaxy"] .theme-stars,
+body[data-lamp-theme="eighties"] .galaxy-stars,
+body[data-lamp-theme="eighties"] .theme-stars { display: inline; }
+
+body[data-lamp-theme="win95"] .cursor-lava,
+body[data-lamp-theme="winxp"] .cursor-lava { display: inline; }
+
+body[data-lamp-theme="nineties"] .shape-lava,
+body[data-lamp-theme="vaporwave"] .shape-lava { display: inline; }
+
+body[data-lamp-theme="pixel"] .pixel-lava,
+body[data-lamp-theme="eightbit"] .pixel-lava { display: inline; }
+
+body[data-lamp-theme="frutiger"] .aero-details { display: inline; }
+body[data-lamp-theme="y2k"] .y2k-lava,
+body[data-lamp-theme="y2k"] .theme-stars { display: inline; }
+body[data-lamp-theme="aurora"] .aurora-lava,
+body[data-lamp-theme="aurora"] .theme-stars { display: inline; }
+body[data-lamp-theme="gameboy"] .gameboy-lava { display: inline; }
+
+/* ================= LAVA LAMP FRAME & PALETTE THEMES ================= */
+body[data-lamp-theme="winforms"] { --lamp-bg: #ffffff; --lamp-border: #adadad; --lamp-radius: 2px; --lamp-shadow: none; --lamp-filter: none; --metal: #8e54a8; --metal-edge: #532c66; --metal-highlight: #b67fd0; --liquid: #f6b286; --lava: #8e184e; --glass-edge: #532c66; }
+body[data-lamp-theme="dark"] { --lamp-bg: #111a24; --lamp-border: #34475b; --lamp-radius: 8px; --lamp-shadow: 0 8px 20px rgba(0,0,0,.35); --metal: #5a6f87; --metal-edge: #283645; --metal-highlight: #8aa3bf; --liquid: #38bdf8; --lava: #65c7d5; --glass-edge: #47627d; }
+body[data-lamp-theme="quizlet"] { --lamp-bg: #f8f9fd; --lamp-border: #4255d4; --lamp-radius: 10px; --lamp-shadow: 0 6px 18px rgba(66,85,212,.14); --metal: #4255d4; --metal-edge: #27348c; --metal-highlight: #7989f2; --liquid: #a5b4fc; --lava: #4f46e5; --glass-edge: #4255d4; }
+body[data-lamp-theme="win95"] { --lamp-bg: #ffffff; --lamp-border: #808080; --lamp-radius: 0px; --lamp-shadow: inset 2px 2px 0 #404040; --metal: #808080; --metal-edge: #222222; --metal-highlight: #c0c0c0; --liquid: #008080; --lava: #000080; --glass-edge: #404040; }
+body[data-lamp-theme="winxp"] { --lamp-bg: #ffffff; --lamp-border: #0054e3; --lamp-radius: 4px; --lamp-shadow: 0 4px 12px rgba(0,84,227,.2); --metal: #245edb; --metal-edge: #0f2c75; --metal-highlight: #689bff; --liquid: #86efac; --lava: #16a34a; --glass-edge: #1c5ed6; }
+body[data-lamp-theme="win7"] { --lamp-bg: linear-gradient(180deg, rgba(255,255,255,.95), rgba(207,228,248,.9)); --lamp-border: #7b9bb8; --lamp-radius: 6px; --lamp-shadow: 0 8px 20px rgba(30,120,200,.24); --metal: #3b82f6; --metal-edge: #1e3a8a; --metal-highlight: #93c5fd; --liquid: #7dd3fc; --lava: #0284c7; --glass-edge: #3b82f6; }
+body[data-lamp-theme="frutiger"] { --lamp-bg: linear-gradient(180deg, #e8fbff, #b8eefb); --lamp-border: #80c8dc; --lamp-radius: 14px; --lamp-shadow: 0 10px 24px rgba(22,143,189,.25); --metal: #0ea5e9; --metal-edge: #075985; --metal-highlight: #7dd3fc; --liquid: #a7f3d0; --lava: #10b981; --glass-edge: #0284c7; --aero: #38bdf8; }
+body[data-lamp-theme="nineties"] { --lamp-bg: #fff3c4; --lamp-border: #141414; --lamp-radius: 0px; --lamp-shadow: 4px 4px 0 #ff2a85; --metal: #0099ff; --metal-edge: #141414; --metal-highlight: #7dd3fc; --liquid: #ffbe0b; --lava: #ff2a85; --glass-edge: #141414; }
+body[data-lamp-theme="y2k"] { --lamp-bg: linear-gradient(145deg, #fce7f3, #e0f2fe); --lamp-border: #e60099; --lamp-radius: 16px; --lamp-shadow: 0 0 18px rgba(230,0,153,.28); --metal: #c084fc; --metal-edge: #6b21a8; --metal-highlight: #f3e8ff; --liquid: #f9a8d4; --lava: #e60099; --glass-edge: #d946ef; }
+body[data-lamp-theme="eighties"] { --lamp-bg: #180730; --lamp-border: #ff2e93; --lamp-radius: 4px; --lamp-shadow: 0 0 20px rgba(255,46,147,.45); --metal: #9333ea; --metal-edge: #3b0764; --metal-highlight: #e879f9; --liquid: #f472b6; --lava: #00f5d4; --glass-edge: #ff2e93; }
+body[data-lamp-theme="vaporwave"] { --lamp-bg: linear-gradient(180deg, #2b124c, #183a5a); --lamp-border: #01cdfe; --lamp-radius: 6px; --lamp-shadow: 0 0 22px rgba(1,205,254,.35); --metal: #b967ff; --metal-edge: #4c1d95; --metal-highlight: #f5d0fe; --liquid: #ff71ce; --lava: #01cdfe; --glass-edge: #ff71ce; }
+body[data-lamp-theme="galaxy"] { --lamp-bg: radial-gradient(circle at 50% 30%, #2e1065, #070916); --lamp-border: #a855f7; --lamp-radius: 10px; --lamp-shadow: 0 0 24px rgba(168,85,247,.38); --metal: #4f46e5; --metal-edge: #1e1b4b; --metal-highlight: #a5b4fc; --liquid: #818cf8; --lava: #e879f9; --glass-edge: #8b5cf6; }
+body[data-lamp-theme="spacejam"] { --lamp-bg: radial-gradient(circle at 50% 20%, #1d358c, #050818); --lamp-border: #ff9500; --lamp-radius: 8px; --lamp-shadow: 0 0 20px rgba(255,149,0,.35); --metal: #1d4ed8; --metal-edge: #172554; --metal-highlight: #60a5fa; --liquid: #93c5fd; --lava: #f97316; --glass-edge: #38bdf8; }
+body[data-lamp-theme="neon"] { --lamp-bg: #080b12; --lamp-border: #00f0ff; --lamp-radius: 6px; --lamp-shadow: 0 0 22px rgba(0,240,255,.4); --metal: #1e293b; --metal-edge: #00f0ff; --metal-highlight: #67e8f9; --liquid: #22d3ee; --lava: #ff007a; --glass-edge: #00f0ff; }
+body[data-lamp-theme="glass"] { --lamp-bg: rgba(255,255,255,.32); --lamp-border: rgba(255,255,255,.75); --lamp-radius: 16px; --lamp-shadow: 0 10px 26px rgba(15,23,42,.2); --lamp-backdrop: blur(12px); --metal: #64748b; --metal-edge: #334155; --metal-highlight: #e2e8f0; --liquid: #bae6fd; --lava: #6366f1; --glass-edge: #ffffff; }
+body[data-lamp-theme="organic"] { --lamp-bg: #eef5ea; --lamp-border: #4a7c59; --lamp-radius: 14px; --lamp-shadow: 0 8px 18px rgba(74,124,89,.18); --metal: #4a7c59; --metal-edge: #233322; --metal-highlight: #a3c29c; --liquid: #d9f99d; --lava: #65a30d; --glass-edge: #4a7c59; }
+body[data-lamp-theme="earth"] { --lamp-bg: #f6efe4; --lamp-border: #b85d3b; --lamp-radius: 6px; --lamp-shadow: 0 8px 18px rgba(184,93,59,.2); --metal: #7c4d32; --metal-edge: #362619; --metal-highlight: #c89d7c; --liquid: #fed7aa; --lava: #b85d3b; --glass-edge: #8f4327; }
+body[data-lamp-theme="aurora"] { --lamp-bg: linear-gradient(180deg, #0b2538, #142b4d); --lamp-border: #34d399; --lamp-radius: 14px; --lamp-shadow: 0 0 22px rgba(52,211,153,.32); --metal: #0f766e; --metal-edge: #042f2e; --metal-highlight: #5eead4; --liquid: #67e8f9; --lava: #28d9b2; --glass-edge: #34d399; --aurora: #38bdf8; }
+body[data-lamp-theme="pixel"] { --lamp-bg: #ffffff; --lamp-border: #111111; --lamp-radius: 0px; --lamp-shadow: 4px 4px 0 #111111; --metal: #8e54a8; --metal-edge: #111111; --metal-highlight: #d8b4fe; --liquid: #fde047; --lava: #ef233c; --glass-edge: #111111; }
+body[data-lamp-theme="eightbit"] { --lamp-bg: #101010; --lamp-border: #fcfcfc; --lamp-radius: 0px; --lamp-shadow: 3px 3px 0 #e40058; --metal: #0058f8; --metal-edge: #fcfcfc; --metal-highlight: #93c5fd; --liquid: #facc15; --lava: #e40058; --glass-edge: #fcfcfc; }
+body[data-lamp-theme="gameboy"] { --lamp-bg: #cadc9f; --lamp-border: #0f380f; --lamp-radius: 0px; --lamp-shadow: 3px 3px 0 #0f380f; --metal: #306230; --metal-edge: #0f380f; --metal-highlight: #9bbc0f; --liquid: #8bac0f; --lava: #0f380f; --glass-edge: #0f380f; }
+body[data-lamp-theme="ps2"] { --lamp-bg: radial-gradient(circle at 50% 40%, #1d2f73, #050817); --lamp-border: #4dabf7; --lamp-radius: 4px; --lamp-shadow: 0 0 22px rgba(77,171,247,.38); --metal: #364fc7; --metal-edge: #0b1330; --metal-highlight: #91a7ff; --liquid: #74c0fc; --lava: #4dabf7; --glass-edge: #4dabf7; }
+
+@media (max-width: 980px) {
+  body {
+    justify-content: flex-start;
+    padding: 12px;
+  }
+  .window-shell {
+    padding: 14px;
+  }
+  .winforms-workspace {
+    grid-template-columns: 1fr;
+  }
+  .card-list { height: 210px; }
+  .media-column { padding-top: 0; }
+  .lavalamp-frame { height: 240px; }
+}
+</style>
+</head>
+<body data-theme="winforms" data-lamp-theme="winforms">
+<div class="app">
+  <div class="window-shell">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="toolbar-left" id="builderToolbar">
+        <button id="loadDeckBtn" class="primary" type="button">Load Deck</button>
+        <button id="saveDeckBtn" type="button">Save Deck</button>
+
+        <div class="menu-wrap">
+          <button id="themeBtn" type="button" aria-expanded="false">Themes ▾</button>
+          <div class="dropdown-menu" id="themeMenu" aria-label="Choose a window theme">
+            <button type="button" data-theme-choice="winforms" aria-pressed="true">WinForms (Classic)</button>
+            <button type="button" data-theme-choice="dark" aria-pressed="false">Dark Slate</button>
+            <button type="button" data-theme-choice="quizlet" aria-pressed="false">Quizlet</button>
+            <button type="button" data-theme-choice="win95" aria-pressed="false">Windows 95</button>
+            <button type="button" data-theme-choice="winxp" aria-pressed="false">Windows XP</button>
+            <button type="button" data-theme-choice="win7" aria-pressed="false">Windows 7</button>
+            <button type="button" data-theme-choice="frutiger" aria-pressed="false">Frutiger Aero</button>
+            <button type="button" data-theme-choice="nineties" aria-pressed="false">90s Shapes</button>
+            <button type="button" data-theme-choice="y2k" aria-pressed="false">Y2K</button>
+            <button type="button" data-theme-choice="eighties" aria-pressed="false">80s Synth</button>
+            <button type="button" data-theme-choice="vaporwave" aria-pressed="false">Vaporwave</button>
+            <button type="button" data-theme-choice="galaxy" aria-pressed="false">Galaxy</button>
+            <button type="button" data-theme-choice="spacejam" aria-pressed="false">Space Jam</button>
+            <button type="button" data-theme-choice="neon" aria-pressed="false">Sleek Dark &amp; Neon</button>
+            <button type="button" data-theme-choice="glass" aria-pressed="false">Glassmorphism</button>
+            <button type="button" data-theme-choice="organic" aria-pressed="false">Organic</button>
+            <button type="button" data-theme-choice="earth" aria-pressed="false">Earth Tone</button>
+            <button type="button" data-theme-choice="aurora" aria-pressed="false">Aurora Mesh</button>
+            <button type="button" data-theme-choice="pixel" aria-pressed="false">Retro Pixel</button>
+            <button type="button" data-theme-choice="eightbit" aria-pressed="false">8-Bit</button>
+            <button type="button" data-theme-choice="gameboy" aria-pressed="false">Game Boy</button>
+            <button type="button" data-theme-choice="ps2" aria-pressed="false">PlayStation 2</button>
+          </div>
+        </div>
+
+        <div class="menu-wrap">
+          <button id="lampThemeBtn" type="button" aria-expanded="false">Lava Lamp ▾</button>
+          <div class="dropdown-menu" id="lampThemeMenu" aria-label="Choose a lava lamp theme">
+            <button type="button" data-lamp-choice="match" aria-pressed="false">Match Window Theme</button>
+            <div class="menu-divider"></div>
+            <button type="button" data-lamp-choice="winforms" aria-pressed="true">WinForms (Classic)</button>
+            <button type="button" data-lamp-choice="dark" aria-pressed="false">Dark Slate</button>
+            <button type="button" data-lamp-choice="quizlet" aria-pressed="false">Quizlet</button>
+            <button type="button" data-lamp-choice="win95" aria-pressed="false">Windows 95</button>
+            <button type="button" data-lamp-choice="winxp" aria-pressed="false">Windows XP</button>
+            <button type="button" data-lamp-choice="win7" aria-pressed="false">Windows 7</button>
+            <button type="button" data-lamp-choice="frutiger" aria-pressed="false">Frutiger Aero</button>
+            <button type="button" data-lamp-choice="nineties" aria-pressed="false">90s Shapes</button>
+            <button type="button" data-lamp-choice="y2k" aria-pressed="false">Y2K</button>
+            <button type="button" data-lamp-choice="eighties" aria-pressed="false">80s Synth</button>
+            <button type="button" data-lamp-choice="vaporwave" aria-pressed="false">Vaporwave</button>
+            <button type="button" data-lamp-choice="galaxy" aria-pressed="false">Galaxy</button>
+            <button type="button" data-lamp-choice="spacejam" aria-pressed="false">Space Jam</button>
+            <button type="button" data-lamp-choice="neon" aria-pressed="false">Sleek Dark &amp; Neon</button>
+            <button type="button" data-lamp-choice="glass" aria-pressed="false">Glassmorphism</button>
+            <button type="button" data-lamp-choice="organic" aria-pressed="false">Organic</button>
+            <button type="button" data-lamp-choice="earth" aria-pressed="false">Earth Tone</button>
+            <button type="button" data-lamp-choice="aurora" aria-pressed="false">Aurora Mesh</button>
+            <button type="button" data-lamp-choice="pixel" aria-pressed="false">Retro Pixel</button>
+            <button type="button" data-lamp-choice="eightbit" aria-pressed="false">8-Bit</button>
+            <button type="button" data-lamp-choice="gameboy" aria-pressed="false">Game Boy</button>
+            <button type="button" data-lamp-choice="ps2" aria-pressed="false">PlayStation 2</button>
+          </div>
+        </div>
+
+        <button id="newDeckBtn" type="button">New Deck</button>
+        <input id="fileInput" type="file" accept=".json,application/json" hidden>
+      </div>
+
+      <div class="toolbar-right" id="deckMetaBar">
+        <div class="deck-meta">
+          <label for="deckName">Deck:</label>
+          <input id="deckName" type="text" value="My Quiz Deck" maxlength="100">
+        </div>
+        <div class="deck-stats">
+          <span id="masterStat">0 cards</span> · <span id="studyStat">0 in study</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Builder View (3-Column WinForms Layout) -->
+    <main id="builderView" class="winforms-workspace">
+      <!-- Left Column: Master Deck & Study Deck -->
+      <section class="decks-column">
+        <div class="decks-pair">
+          <div class="deck-box-col">
+            <h2 class="col-title">Master Deck</h2>
+            <div class="card-list" id="masterList"></div>
+          </div>
+
+          <div class="transfer-col">
+            <button type="button" id="addToStudyBtn" class="transfer-btn" title="Add selected cards to Study Deck">&gt;</button>
+          </div>
+
+          <div class="deck-box-col">
+            <h2 class="col-title">Study Deck</h2>
+            <div class="card-list" id="studyList"></div>
+          </div>
+        </div>
+
+        <div class="deck-actions-row">
+          <div class="left-btns">
+            <button type="button" id="addCardBtn">New Card</button>
+            <button type="button" id="deleteCardBtn">Delete card</button>
+          </div>
+          <div></div>
+          <div class="right-btns">
+            <button type="button" id="removeFromStudyBtn">Remove card</button>
+            <!-- Colorful Sticky Notes Stack Illustration -->
+            <svg class="sticky-notes-art" viewBox="0 0 140 130" aria-hidden="true">
+              <rect x="26" y="16" width="84" height="84" transform="rotate(-12 68 58)" fill="#f36c3d" stroke="#d9582b" stroke-width="1.5"/>
+              <rect x="30" y="18" width="84" height="84" transform="rotate(8 72 60)" fill="#ff9e2c" stroke="#e08419" stroke-width="1.5"/>
+              <rect x="24" y="22" width="84" height="84" transform="rotate(-5 66 64)" fill="#2cb5e8" stroke="#1b98c7" stroke-width="1.5"/>
+              <rect x="32" y="22" width="84" height="84" transform="rotate(14 74 64)" fill="#6bc048" stroke="#53a133" stroke-width="1.5"/>
+              <rect x="28" y="25" width="84" height="84" transform="rotate(2 70 67)" fill="#b8d943" stroke="#9ec02d" stroke-width="1.5"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- Center Column: Flashcard / Quiz Editor -->
+      <section class="editor-column">
+        <h2 class="section-heading">Flashcards</h2>
+        <textarea id="questionInput" placeholder="Question" disabled></textarea>
+        <textarea id="answerInput" placeholder="Answer" disabled></textarea>
+
+        <h3 class="sub-heading">Use below to create wrong answers for quiz</h3>
+        <textarea id="wrong1Input" placeholder="WrongAnswer" disabled></textarea>
+        <textarea id="wrong2Input" placeholder="WrongAnswer" disabled></textarea>
+        <textarea id="wrong3Input" placeholder="WrongAnswer" disabled></textarea>
+
+        <div class="editor-footer-hint">
+          <span id="editingLabel">No card selected — click "New Card" to start</span>
+          <button type="button" id="clearEditorBtn" disabled style="padding:3px 9px;font-size:.8rem;">Clear fields</button>
+        </div>
+      </section>
+
+      <!-- Right Column: Custom Lava Lamp Character + Study & Quiz Buttons -->
+      <aside class="media-column">
+        <div class="lavalamp-frame" id="lavaLampFrame" title="Custom Lava Lamp Character">
+          <svg class="lava-art" viewBox="0 0 170 310" aria-label="Lava lamp character">
+            <defs>
+              <linearGradient id="glassFill" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity=".42"/>
+                <stop offset="35%" stop-color="#ffffff" stop-opacity=".08"/>
+                <stop offset="100%" stop-color="#000000" stop-opacity=".12"/>
+              </linearGradient>
+              <linearGradient id="aeroFill" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ff71ce"/>
+                <stop offset="50%" stop-color="#b967ff"/>
+                <stop offset="100%" stop-color="#01cdfe"/>
+              </linearGradient>
+              <filter id="softGlow" x="-25%" y="-25%" width="150%" height="150%">
+                <feGaussianBlur stdDeviation="1.6" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- Top Cap -->
+            <g class="lamp-hardware">
+              <path d="M62,16 L108,16 L118,52 L52,52 Z"/>
+              <ellipse cx="85" cy="16" rx="23" ry="4"/>
+            </g>
+
+            <!-- Glass Chamber -->
+            <path class="glass-outline" d="M52,52 L118,52 L134,225 L36,225 Z"/>
+            <path class="liquid-fill" d="M55,58 L115,58 L130,221 L40,221 Z"/>
+
+            <!-- Classic Lava Bubbles -->
+            <g class="classic-bubbles">
+              <ellipse class="blob blob-a" cx="85" cy="186" rx="22" ry="18"/>
+              <circle class="blob blob-b" cx="100" cy="148" r="11"/>
+              <circle class="blob blob-c" cx="70" cy="116" r="8"/>
+              <ellipse class="blob blob-d" cx="63" cy="168" rx="8" ry="10"/>
+            </g>
+
+            <!-- Space Jam Basketballs -->
+            <g class="basketballs">
+              <g class="ball ball-one">
+                <circle cx="74" cy="186" r="12"/>
+                <path d="M62,186 Q74,180 86,186 M74,174 L74,198"/>
+              </g>
+              <g class="ball ball-two">
+                <circle cx="102" cy="144" r="9"/>
+                <path d="M93,144 Q102,139 111,144 M102,135 L102,153"/>
+              </g>
+              <g class="ball ball-three">
+                <circle cx="70" cy="102" r="7"/>
+                <path d="M63,102 Q70,98 77,102 M70,95 L70,109"/>
+              </g>
+            </g>
+
+            <!-- Galaxy & 80s Stars Bonking Around -->
+            <g class="galaxy-stars star-a">
+              <circle cx="64" cy="112" r="2.3"/>
+              <circle cx="102" cy="146" r="2.7"/>
+              <circle cx="74" cy="176" r="2.1"/>
+            </g>
+            <g class="theme-stars star-b">
+              <polygon points="85,112 87.5,118 94,118 89,122 91,128 85,124 79,128 81,122 76,118 82.5,118"/>
+            </g>
+            <g class="theme-stars star-c">
+              <polygon points="101,164 103,169 108,169 104,172 105.5,177 101,174 96.5,177 98,172 94,169 99,169"/>
+            </g>
+
+            <!-- Win95 / XP 5 Mice/Cursors Bonking Around -->
+            <g class="cursor-lava">
+              <path class="mouse-item mouse-1" d="M62,118 L62,142 L68,137 L73,145 L77,143 L72,135 L79,135 Z"/>
+              <path class="mouse-item mouse-2" d="M98,128 L98,152 L104,147 L109,155 L113,153 L108,145 L115,145 Z"/>
+              <path class="mouse-item mouse-3" d="M78,156 L78,180 L84,175 L89,183 L93,181 L88,173 L95,173 Z"/>
+              <path class="mouse-item mouse-4" d="M58,168 L58,192 L64,187 L69,195 L73,193 L68,185 L75,185 Z"/>
+              <path class="mouse-item mouse-5" d="M96,174 L96,198 L102,193 L107,201 L111,199 L106,191 L113,191 Z"/>
+            </g>
+
+            <!-- 90s & Vaporwave Shapes -->
+            <g class="shape-lava">
+              <polygon class="shape-a" points="70,118 82,138 58,138"/>
+              <rect class="shape-b" x="92" y="142" width="16" height="16" rx="2"/>
+              <circle class="shape-c" cx="76" cy="176" r="12"/>
+            </g>
+
+            <!-- Retro Pixel & 8-Bit Accumulative Lava Blocks -->
+            <g class="pixel-lava">
+              <rect class="px-1" x="64" y="112" width="12" height="12"/>
+              <rect class="px-2" x="94" y="128" width="15" height="15"/>
+              <rect class="px-3" x="60" y="156" width="14" height="14"/>
+              <rect class="px-4" x="86" y="176" width="18" height="15"/>
+            </g>
+
+            <!-- Game Boy Crisp Accumulative Blocks -->
+            <g class="gameboy-lava">
+              <rect class="px-1" x="64" y="116" width="12" height="12"/>
+              <rect class="px-2" x="92" y="142" width="14" height="14"/>
+              <rect class="px-4" x="72" y="176" width="20" height="16"/>
+            </g>
+
+            <!-- Frutiger Aero & Y2K & Aurora -->
+            <g class="aero-details">
+              <circle cx="72" cy="116" r="10"/>
+              <circle cx="100" cy="154" r="13"/>
+              <circle cx="78" cy="190" r="11"/>
+            </g>
+            <g class="y2k-lava">
+              <ellipse cx="85" cy="156" rx="20" ry="16"/>
+              <circle cx="72" cy="114" r="8"/>
+            </g>
+            <g class="aurora-lava">
+              <path d="M56,192 Q76,166 92,186 T118,174 L115,212 L54,212 Z"/>
+              <path d="M60,132 Q82,110 106,130 L103,148 Q80,134 60,148 Z"/>
+            </g>
+
+            <!-- Subtle Glass Highlight -->
+            <path class="glass-shine" d="M60,60 L67,60 L53,216 L46,216 Z" fill="#ffffff" opacity=".28"/>
+
+            <!-- Mustache Character Base -->
+            <g class="lamp-hardware mustache-face">
+              <path d="M36,225 L134,225 L118,265 L52,265 Z"/>
+              <path d="M52,265 L118,265 L136,304 L34,304 Z"/>
+              <path class="base-highlight" d="M58,268 L112,268 L124,298 L46,298 Z"/>
+              <circle class="eye" cx="69" cy="276" r="3.6"/>
+              <circle class="eye" cx="101" cy="276" r="3.6"/>
+              <path class="mustache" d="M63,290 Q74,282 85,288 Q96,282 107,290 Q98,296 85,292 Q72,296 63,290 Z"/>
+            </g>
+          </svg>
+        </div>
+
+        <button type="button" id="studyFlashcardsBtn">Study Flashcards!</button>
+        <button type="button" id="startQuizBtn">Quiz Me!</button>
+      </aside>
+    </main>
+
+    <!-- Flashcard Study View -->
+    <main id="flashcardView" class="quiz-view">
+      <section class="quiz-panel">
+        <div class="quiz-top">
+          <h2 id="fcDeckTitle">Study Flashcards</h2>
+          <div class="progress" id="fcProgress">1 / 1</div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="fcProgressFill"></div></div>
+
+        <div class="flashcard-stage" id="flashcardStage" tabindex="0" role="button" aria-label="Flip flashcard">
+          <div class="flashcard-side-badge" id="fcSideBadge">Question (Click card or press Space to flip)</div>
+          <div class="flashcard-body" id="fcCardText">Question text</div>
+        </div>
+
+        <div class="quiz-actions">
+          <button type="button" id="fcBackBtn">← Back to Builder</button>
+          <div class="right-actions">
+            <button type="button" id="fcPrevBtn">Previous</button>
+            <button type="button" id="fcFlipBtn">Flip Card</button>
+            <button type="button" id="fcNextBtn" class="primary">Next</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Multiple Choice Quiz View -->
+    <main id="quizView" class="quiz-view">
+      <section class="quiz-panel" id="questionView">
+        <div class="quiz-top">
+          <h2 id="quizDeckTitle">Quiz</h2>
+          <div class="progress" id="questionProgress">1 / 1</div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="question-number" id="questionNumber">Question 1</div>
+        <h3 class="question-text" id="quizQuestion">Question text</h3>
+        <div class="answer-list" id="answerList"></div>
+        <div class="quiz-actions">
+          <button type="button" id="backToBuilderBtn">← Back to Builder</button>
+          <div class="right-actions">
+            <button type="button" id="previousBtn">Previous</button>
+            <button type="button" id="nextBtn" class="primary">Next</button>
+            <button type="button" id="submitQuizBtn" class="primary">Submit Quiz</button>
+          </div>
+        </div>
+        <div class="quiz-hint">Your selection is saved as you move between questions. Unanswered questions count as incorrect.</div>
+      </section>
+
+      <section class="panel quiz-panel result-view" id="resultView">
+        <div class="question-number">QUIZ COMPLETE</div>
+        <h2 style="margin:0">Your Results</h2>
+        <div class="result-score" id="resultScore">0 / 0</div>
+        <p class="result-message" id="resultMessage"></p>
+        <div id="missedContainer" class="missed-list"></div>
+        <div class="result-actions">
+          <button type="button" id="retryMissedBtn" class="primary">Retry Missed</button>
+          <button type="button" id="retakeQuizBtn">Retake Full Quiz</button>
+          <button type="button" id="resultsBackBtn">Back to Builder</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  let masterDeck = { DeckName: "My Quiz Deck", Cards: [] };
+  let studyDeck = [];
+  let selectedCard = null;
+  const masterSelected = new Set();
+  const studySelected = new Set();
+  let lastMasterSelection = -1;
+  let lastStudySelection = -1;
+
+  let quizDeck = [];
+  let quizItems = [];
+  let quizIndex = 0;
+  let lastMissed = [];
+
+  let fcDeck = [];
+  let fcIndex = 0;
+  let fcFlipped = false;
+
+  let currentWindowTheme = "winforms";
+  let currentLampChoice = "winforms";
+
+  const $ = (id) => document.getElementById(id);
+  const fields = {
+    Question: $("questionInput"),
+    Answer: $("answerInput"),
+    Wrong1: $("wrong1Input"),
+    Wrong2: $("wrong2Input"),
+    Wrong3: $("wrong3Input")
+  };
+
+  function toast(message) {
+    const el = $("toast");
+    el.textContent = message;
+    el.classList.add("show");
+    window.clearTimeout(toast.timer);
+    toast.timer = window.setTimeout(() => el.classList.remove("show"), 2200);
+  }
+
+  function normalizeCard(card, index) {
+    return {
+      CardNumber: Number.isFinite(Number(card?.CardNumber)) ? Number(card.CardNumber) : index + 1,
+      Question: String(card?.Question ?? ""),
+      Answer: String(card?.Answer ?? ""),
+      Wrong1: String(card?.Wrong1 ?? ""),
+      Wrong2: String(card?.Wrong2 ?? ""),
+      Wrong3: String(card?.Wrong3 ?? "")
+    };
+  }
+
+  function renumberCards() {
+    masterDeck.Cards.forEach((card, index) => card.CardNumber = index + 1);
+  }
+
+  function updateStats() {
+    const total = masterDeck.Cards.length;
+    const study = studyDeck.length;
+    $("masterStat").textContent = `${total} ${total === 1 ? "card" : "cards"}`;
+    $("studyStat").textContent = `${study} in study`;
+    $("deckName").value = masterDeck.DeckName;
+  }
+
+  function makeListItem(card, index, isStudy) {
+    const row = document.createElement("button");
+    row.type = "button";
+    const selection = isStudy ? studySelected : masterSelected;
+    row.className = "list-item"
+      + (!isStudy && card === selectedCard ? " active" : "")
+      + (selection.has(card) ? " chosen" : "");
+    row.setAttribute("aria-pressed", selection.has(card) ? "true" : "false");
+
+    const title = document.createElement("span");
+    title.className = "item-title";
+    title.textContent = `Card ${masterDeck.Cards.indexOf(card) + 1}`;
+    const preview = document.createElement("span");
+    preview.className = "item-preview";
+    preview.textContent = card.Question.trim() || "(Empty question)";
+    row.append(title, preview);
+
+    row.addEventListener("click", (event) => {
+      const cards = isStudy ? studyDeck : masterDeck.Cards;
+      const set = isStudy ? studySelected : masterSelected;
+      const previous = isStudy ? lastStudySelection : lastMasterSelection;
+
+      if (event.shiftKey && previous >= 0) {
+        const low = Math.min(previous, index);
+        const high = Math.max(previous, index);
+        if (!event.ctrlKey && !event.metaKey) set.clear();
+        for (let i = low; i <= high; i++) set.add(cards[i]);
+      } else if (event.ctrlKey || event.metaKey) {
+        if (set.has(card)) set.delete(card);
+        else set.add(card);
+      } else {
+        set.clear();
+        set.add(card);
+      }
+
+      if (isStudy) {
+        lastStudySelection = index;
+      } else {
+        lastMasterSelection = index;
+        selectCard(card);
+      }
+      renderLists();
+    });
+    return row;
+  }
+
+  function renderLists() {
+    const masterList = $("masterList");
+    const studyList = $("studyList");
+    masterList.replaceChildren();
+    studyList.replaceChildren();
+
+    if (!masterDeck.Cards.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No cards yet.";
+      masterList.append(empty);
+    } else {
+      masterDeck.Cards.forEach((card, index) => masterList.append(makeListItem(card, index, false)));
+    }
+
+    if (!studyDeck.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Study deck empty.";
+      studyList.append(empty);
+    } else {
+      studyDeck.forEach((card, index) => studyList.append(makeListItem(card, index, true)));
+    }
+    updateStats();
+  }
+
+  function setEditorEnabled(enabled) {
+    Object.values(fields).forEach(field => field.disabled = !enabled);
+    $("clearEditorBtn").disabled = !enabled;
+  }
+
+  function selectCard(card) {
+    selectedCard = card;
+    if (!card) {
+      Object.keys(fields).forEach(key => fields[key].value = "");
+      $("editingLabel").textContent = "No card selected";
+      setEditorEnabled(false);
+    } else {
+      Object.keys(fields).forEach(key => fields[key].value = card[key] ?? "");
+      $("editingLabel").textContent = `Editing Card ${masterDeck.Cards.indexOf(card) + 1}`;
+      setEditorEnabled(true);
+    }
+    renderLists();
+  }
+
+  function addCard() {
+    const card = normalizeCard({}, masterDeck.Cards.length);
+    masterDeck.Cards.push(card);
+    masterSelected.clear();
+    masterSelected.add(card);
+    lastMasterSelection = masterDeck.Cards.length - 1;
+    selectCard(card);
+    fields.Question.focus();
+    toast("New card added.");
+  }
+
+  function deleteSelectedCard() {
+    if (!selectedCard && !masterSelected.size) {
+      toast("Select a card to delete.");
+      return;
+    }
+    const toRemove = masterSelected.size ? new Set(masterSelected) : new Set([selectedCard]);
+    const prevIdx = masterDeck.Cards.indexOf(selectedCard);
+    masterDeck.Cards = masterDeck.Cards.filter(c => !toRemove.has(c));
+    studyDeck = studyDeck.filter(c => !toRemove.has(c));
+    masterSelected.clear();
+    studySelected.clear();
+    renumberCards();
+    const nextCard = masterDeck.Cards[Math.min(Math.max(prevIdx, 0), masterDeck.Cards.length - 1)] ?? null;
+    selectCard(nextCard);
+    toast(`Deleted ${toRemove.size} ${toRemove.size === 1 ? "card" : "cards"}.`);
+  }
+
+  function addCheckedToStudy() {
+    const additions = masterDeck.Cards.filter(card => masterSelected.has(card));
+    if (!additions.length && selectedCard) additions.push(selectedCard);
+    let added = 0;
+    additions.forEach(card => {
+      if (!studyDeck.includes(card)) {
+        studyDeck.push(card);
+        added++;
+      }
+    });
+    renderLists();
+    toast(added ? `Added ${added} ${added === 1 ? "card" : "cards"} to Study Deck.` : "Select cards in Master Deck first.");
+  }
+
+  function removeCheckedFromStudy() {
+    if (!studySelected.size) {
+      toast("Select cards in Study Deck to remove.");
+      return;
+    }
+    const before = studyDeck.length;
+    studyDeck = studyDeck.filter(card => !studySelected.has(card));
+    studySelected.clear();
+    lastStudySelection = -1;
+    renderLists();
+    const removed = before - studyDeck.length;
+    toast(`Removed ${removed} ${removed === 1 ? "card" : "cards"}.`);
+  }
+
+  function saveDeck() {
+    masterDeck.DeckName = $("deckName").value.trim() || "My Quiz Deck";
+    renumberCards();
+    const json = JSON.stringify(masterDeck, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeName = masterDeck.DeckName.replace(/[\\/:*?"<>|]+/g, "_").trim() || "quiz-deck";
+    link.href = url;
+    link.download = `${safeName}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast("Deck saved as JSON.");
+  }
+
+  function loadDeckObject(data) {
+    if (!data || !Array.isArray(data.Cards)) {
+      throw new Error("Invalid deck file: expected a JSON object with a Cards array.");
+    }
+    masterDeck = {
+      DeckName: String(data.DeckName || "Imported Deck"),
+      Cards: data.Cards.map((card, index) => normalizeCard(card, index))
+    };
+    renumberCards();
+    studyDeck = [];
+    masterSelected.clear();
+    studySelected.clear();
+    lastMasterSelection = -1;
+    lastStudySelection = -1;
+    selectedCard = masterDeck.Cards[0] ?? null;
+    if (selectedCard) masterSelected.add(selectedCard);
+    selectCard(selectedCard);
+    toast(`Loaded ${masterDeck.Cards.length} ${masterDeck.Cards.length === 1 ? "card" : "cards"}.`);
+  }
+
+  function fisherYates(items) {
+    const result = items.slice();
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+
+  function getActiveStudyPool() {
+    return studyDeck.length ? studyDeck : masterDeck.Cards;
+  }
+
+  function switchView(viewName) {
+    $("builderView").style.display = viewName === "builder" ? "grid" : "none";
+    $("builderToolbar").style.display = viewName === "builder" ? "flex" : "none";
+    $("deckMetaBar").style.display = viewName === "builder" ? "flex" : "none";
+    $("flashcardView").style.display = viewName === "flashcards" ? "block" : "none";
+    $("quizView").style.display = viewName === "quiz" ? "block" : "none";
+  }
+
+  function startFlashcards() {
+    const pool = getActiveStudyPool();
+    if (!pool.length) {
+      toast("Add at least one card first.");
+      return;
+    }
+    for (let i = 0; i < pool.length; i++) {
+      if (!pool[i].Question.trim() || !pool[i].Answer.trim()) {
+        toast(`Card ${masterDeck.Cards.indexOf(pool[i]) + 1} needs both a Question and an Answer.`);
+        return;
+      }
+    }
+    fcDeck = pool.slice();
+    fcIndex = 0;
+    fcFlipped = false;
+    $("fcDeckTitle").textContent = `${masterDeck.DeckName} — Flashcards`;
+    switchView("flashcards");
+    renderFlashcard();
+  }
+
+  function renderFlashcard() {
+    const card = fcDeck[fcIndex];
+    $("fcProgress").textContent = `${fcIndex + 1} / ${fcDeck.length}`;
+    $("fcProgressFill").style.width = `${((fcIndex + 1) / fcDeck.length) * 100}%`;
+    $("fcSideBadge").textContent = fcFlipped
+      ? "Answer (Click card to see Question)"
+      : "Question (Click card to reveal Answer)";
+    $("fcCardText").textContent = fcFlipped ? card.Answer : card.Question;
+    $("fcPrevBtn").disabled = fcIndex === 0;
+    $("fcNextBtn").disabled = fcIndex === fcDeck.length - 1;
+  }
+
+  function validateQuizDeck(cards) {
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
+      const values = [card.Question, card.Answer, card.Wrong1, card.Wrong2, card.Wrong3];
+      if (values.some(value => !String(value ?? "").trim())) {
+        return `Card ${masterDeck.Cards.indexOf(card) + 1} is incomplete. Fill in Question, Answer, and all 3 WrongAnswers.`;
+      }
+    }
+    return "";
+  }
+
+  function prepareQuiz(cards) {
+    quizDeck = cards.slice();
+    quizItems = quizDeck.map(card => {
+      const options = fisherYates([
+        { text: card.Answer, correct: true },
+        { text: card.Wrong1, correct: false },
+        { text: card.Wrong2, correct: false },
+        { text: card.Wrong3, correct: false }
+      ]);
+      return { card, options, selected: -1 };
+    });
+    quizIndex = 0;
+    lastMissed = [];
+    $("quizDeckTitle").textContent = masterDeck.DeckName;
+    switchView("quiz");
+    $("questionView").style.display = "block";
+    $("resultView").style.display = "none";
+    renderQuizQuestion();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function renderQuizQuestion() {
+    if (!quizItems.length) return;
+    const item = quizItems[quizIndex];
+    $("questionProgress").textContent = `${quizIndex + 1} / ${quizItems.length}`;
+    $("questionNumber").textContent = `Question ${quizIndex + 1}`;
+    $("quizQuestion").textContent = item.card.Question;
+    $("progressFill").style.width = `${((quizIndex + 1) / quizItems.length) * 100}%`;
+
+    const list = $("answerList");
+    list.replaceChildren();
+    const letters = ["A", "B", "C", "D"];
+    item.options.forEach((option, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "answer-option" + (item.selected === index ? " selected" : "");
+      button.setAttribute("aria-pressed", item.selected === index ? "true" : "false");
+
+      const letter = document.createElement("span");
+      letter.className = "answer-letter";
+      letter.textContent = letters[index];
+
+      const text = document.createElement("span");
+      text.className = "answer-text";
+      text.textContent = option.text;
+
+      button.append(letter, text);
+      button.addEventListener("click", () => {
+        item.selected = index;
+        renderQuizQuestion();
+      });
+      list.append(button);
+    });
+
+    $("previousBtn").disabled = quizIndex === 0;
+    $("nextBtn").disabled = quizIndex === quizItems.length - 1;
+  }
+
+  function showResults() {
+    let correct = 0;
+    const missed = [];
+    quizItems.forEach(item => {
+      if (item.selected >= 0 && item.options[item.selected].correct) correct++;
+      else missed.push(item.card);
+    });
+    lastMissed = missed;
+    const total = quizItems.length;
+    const percent = total ? (correct / total) * 100 : 0;
+
+    $("questionView").style.display = "none";
+    $("resultView").style.display = "block";
+    $("resultScore").textContent = `${correct} / ${total} · ${percent.toFixed(1)}%`;
+    $("resultMessage").textContent = percent === 100
+      ? "Perfect score! Great work."
+      : percent >= 70
+        ? "Nice job! Review the missed questions to sharpen things up."
+        : "Keep practicing. Retry the missed questions to lock them in.";
+
+    $("retryMissedBtn").style.display = missed.length ? "inline-block" : "none";
+    $("retryMissedBtn").textContent = `Retry Missed (${missed.length})`;
+
+    const container = $("missedContainer");
+    container.replaceChildren();
+    if (missed.length) {
+      const heading = document.createElement("h3");
+      heading.textContent = "Questions to review";
+      heading.style.fontSize = "1rem";
+      heading.style.margin = "8px 0 2px";
+      container.append(heading);
+
+      missed.forEach(card => {
+        const item = document.createElement("div");
+        item.className = "missed-item";
+        const question = document.createElement("strong");
+        question.textContent = card.Question;
+        const answer = document.createElement("span");
+        answer.textContent = `Correct answer: ${card.Answer}`;
+        item.append(question, answer);
+        container.append(item);
+      });
+    }
+  }
+
+  /* ===== WINDOW & LAVA LAMP THEME SWITCHERS ===== */
+  function syncLampTheme() {
+    const resolvedLamp = currentLampChoice === "match" ? currentWindowTheme : currentLampChoice;
+    document.body.setAttribute("data-lamp-theme", resolvedLamp);
+    document.querySelectorAll("[data-lamp-choice]").forEach(btn => {
+      btn.setAttribute("aria-pressed", btn.dataset.lampChoice === currentLampChoice ? "true" : "false");
+    });
+  }
+
+  function applyTheme(theme) {
+    currentWindowTheme = theme;
+    document.body.setAttribute("data-theme", theme);
+    document.querySelectorAll("[data-theme-choice]").forEach(btn => {
+      btn.setAttribute("aria-pressed", btn.dataset.themeChoice === theme ? "true" : "false");
+    });
+    syncLampTheme();
+    try { localStorage.setItem("quizBuilderTheme", theme); } catch (_) {}
+  }
+
+  function applyLampTheme(lampChoice) {
+    currentLampChoice = lampChoice;
+    syncLampTheme();
+    try { localStorage.setItem("quizBuilderLampTheme", lampChoice); } catch (_) {}
+  }
+
+  function closeAllMenus() {
+    $("themeMenu").classList.remove("open");
+    $("themeBtn").setAttribute("aria-expanded", "false");
+    $("lampThemeMenu").classList.remove("open");
+    $("lampThemeBtn").setAttribute("aria-expanded", "false");
+  }
+
+  $("themeBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = $("themeMenu");
+    const wasOpen = menu.classList.contains("open");
+    closeAllMenus();
+    if (!wasOpen) {
+      menu.classList.add("open");
+      $("themeBtn").setAttribute("aria-expanded", "true");
+    }
+  });
+
+  $("lampThemeBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = $("lampThemeMenu");
+    const wasOpen = menu.classList.contains("open");
+    closeAllMenus();
+    if (!wasOpen) {
+      menu.classList.add("open");
+      $("lampThemeBtn").setAttribute("aria-expanded", "true");
+    }
+  });
+
+  document.querySelectorAll("[data-theme-choice]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      applyTheme(btn.dataset.themeChoice);
+      closeAllMenus();
+    });
+  });
+
+  document.querySelectorAll("[data-lamp-choice]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      applyLampTheme(btn.dataset.lampChoice);
+      closeAllMenus();
+    });
+  });
+
+  document.addEventListener("click", closeAllMenus);
+
+  try {
+    const savedTheme = localStorage.getItem("quizBuilderTheme");
+    const savedLamp = localStorage.getItem("quizBuilderLampTheme");
+    if (savedLamp) currentLampChoice = savedLamp;
+    if (savedTheme) applyTheme(savedTheme);
+    else syncLampTheme();
+  } catch (_) {
+    syncLampTheme();
+  }
+
+  $("deckName").addEventListener("input", (e) => {
+    masterDeck.DeckName = e.target.value;
+  });
+
+  Object.entries(fields).forEach(([key, el]) => {
+    el.addEventListener("input", () => {
+      if (!selectedCard) return;
+      selectedCard[key] = el.value;
+      renderLists();
+    });
+  });
+
+  $("clearEditorBtn").addEventListener("click", () => {
+    if (!selectedCard) return;
+    Object.keys(fields).forEach(key => {
+      fields[key].value = "";
+      selectedCard[key] = "";
+    });
+    renderLists();
+    fields.Question.focus();
+  });
+
+  $("addCardBtn").addEventListener("click", addCard);
+  $("deleteCardBtn").addEventListener("click", deleteSelectedCard);
+  $("addToStudyBtn").addEventListener("click", addCheckedToStudy);
+  $("removeFromStudyBtn").addEventListener("click", removeCheckedFromStudy);
+
+  $("newDeckBtn").addEventListener("click", () => {
+    if (masterDeck.Cards.length && !window.confirm("Start a new empty deck? Unsaved changes will be lost.")) return;
+    masterDeck = { DeckName: "My Quiz Deck", Cards: [] };
+    studyDeck = [];
+    masterSelected.clear();
+    studySelected.clear();
+    selectCard(null);
+    toast("New deck created.");
+  });
+
+  $("saveDeckBtn").addEventListener("click", saveDeck);
+  $("loadDeckBtn").addEventListener("click", () => $("fileInput").click());
+  $("fileInput").addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        loadDeckObject(JSON.parse(String(reader.result)));
+      } catch (err) {
+        toast(err.message || "Could not load JSON file.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  $("studyFlashcardsBtn").addEventListener("click", startFlashcards);
+  $("flashcardStage").addEventListener("click", () => {
+    fcFlipped = !fcFlipped;
+    renderFlashcard();
+  });
+  $("flashcardStage").addEventListener("keydown", (e) => {
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      fcFlipped = !fcFlipped;
+      renderFlashcard();
+    }
+  });
+  $("fcFlipBtn").addEventListener("click", () => {
+    fcFlipped = !fcFlipped;
+    renderFlashcard();
+  });
+  $("fcPrevBtn").addEventListener("click", () => {
+    if (fcIndex > 0) { fcIndex--; fcFlipped = false; renderFlashcard(); }
+  });
+  $("fcNextBtn").addEventListener("click", () => {
+    if (fcIndex < fcDeck.length - 1) { fcIndex++; fcFlipped = false; renderFlashcard(); }
+  });
+  $("fcBackBtn").addEventListener("click", () => switchView("builder"));
+
+  $("startQuizBtn").addEventListener("click", () => {
+    const pool = getActiveStudyPool();
+    if (!pool.length) {
+      toast("Add at least one card first.");
+      return;
+    }
+    const err = validateQuizDeck(pool);
+    if (err) {
+      toast(err);
+      return;
+    }
+    prepareQuiz(pool);
+  });
+
+  $("previousBtn").addEventListener("click", () => {
+    if (quizIndex > 0) { quizIndex--; renderQuizQuestion(); }
+  });
+  $("nextBtn").addEventListener("click", () => {
+    if (quizIndex < quizItems.length - 1) { quizIndex++; renderQuizQuestion(); }
+  });
+  $("submitQuizBtn").addEventListener("click", showResults);
+  $("backToBuilderBtn").addEventListener("click", () => switchView("builder"));
+  $("resultsBackBtn").addEventListener("click", () => switchView("builder"));
+  $("retryMissedBtn").addEventListener("click", () => {
+    if (lastMissed.length) prepareQuiz(lastMissed);
+  });
+  $("retakeQuizBtn").addEventListener("click", () => prepareQuiz(quizDeck));
+
+  renderLists();
+})();
+</script>
+</body>
+</html>
