@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flashcards &amp; Quiz Builder</title>
+<title>FlashQuiz</title>
 <style>
 :root {
   color-scheme: light;
@@ -1114,6 +1114,22 @@ body[data-lamp-theme="ps2"] { --lamp-bg: radial-gradient(circle at 50% 40%, #1d2
   .media-column { padding-top: 0; }
   .lavalamp-frame { height: 240px; }
 }
+
+/* Question-to-JSON builder view */
+#importerView { display:none; max-width:1000px; margin:0 auto; }
+.importer-panel { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
+.importer-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+.importer-header h2 { margin:0; font-size:1.15rem; font-weight:600; }
+.importer-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.importer-field label { display:block; font-weight:600; margin:0 0 6px; }
+.importer-field input { width:100%; border:1px solid var(--border); border-radius:var(--radius); padding:8px 10px; background:var(--panel-3); color:var(--text); }
+.importer-field textarea { width:100%; min-height:390px; resize:vertical; border:1px solid var(--border); border-radius:var(--radius); padding:10px; background:var(--panel-3); color:var(--text); font:12px/1.5 Consolas,Monaco,monospace; }
+.importer-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.importer-note { color:var(--muted); font-size:.82rem; margin:8px 0 0; }
+#importerStatus { min-height:22px; margin-top:10px; color:var(--muted); white-space:pre-wrap; font-size:.85rem; }
+#importerStatus.error { color:#c62828; }
+@media (max-width:760px) { .importer-grid { grid-template-columns:1fr; } .importer-field textarea { min-height:280px; } }
+
 </style>
 </head>
 <body data-theme="winforms" data-lamp-theme="winforms">
@@ -1184,6 +1200,7 @@ body[data-lamp-theme="ps2"] { --lamp-bg: radial-gradient(circle at 50% 40%, #1d2
         </div>
 
         <button id="newDeckBtn" type="button">New Deck</button>
+        <button id="openJsonBuilderBtn" type="button">Question → JSON Builder</button>
         <input id="fileInput" type="file" accept=".json,application/json" hidden>
       </div>
 
@@ -1390,6 +1407,42 @@ body[data-lamp-theme="ps2"] { --lamp-bg: radial-gradient(circle at 50% 40%, #1d2
         <button type="button" id="studyFlashcardsBtn">Study Flashcards!</button>
         <button type="button" id="startQuizBtn">Quiz Me!</button>
       </aside>
+    </main>
+
+    <!-- Question-to-JSON Importer View -->
+    <main id="importerView">
+      <section class="importer-panel">
+        <div class="importer-header">
+          <h2>Question → JSON Builder</h2>
+          <button type="button" id="importerBackBtn">← Back to Flashcard Builder</button>
+        </div>
+        <p class="importer-note">Paste an answer key (for example, “1.1 A; 1.2 B;”) followed by Review Question sections and A–D choices. The tool builds the deck format used by this app.</p>
+        <div class="importer-field" style="margin:14px 0;">
+          <label for="importerDeckName">Deck name</label>
+          <input id="importerDeckName" type="text" value="My Quiz Deck" maxlength="100">
+        </div>
+        <div class="importer-grid">
+          <div class="importer-field">
+            <label for="importerSource">Source text</label>
+            <textarea id="importerSource" spellcheck="false" placeholder="Paste your answer key and review questions here..."></textarea>
+            <div class="importer-actions">
+              <button type="button" class="primary" id="buildJsonBtn">Build JSON</button>
+              <button type="button" id="loadImporterSampleBtn">Load sample</button>
+              <button type="button" id="clearImporterBtn">Clear</button>
+            </div>
+          </div>
+          <div class="importer-field">
+            <label for="importerOutput">JSON output</label>
+            <textarea id="importerOutput" spellcheck="false" readonly placeholder="Your formatted JSON will appear here..."></textarea>
+            <div class="importer-actions">
+              <button type="button" id="copyImporterJsonBtn">Copy JSON</button>
+              <button type="button" id="downloadImporterJsonBtn">Download .json</button>
+              <button type="button" class="primary" id="useImporterDeckBtn">Use in Flashcard Builder</button>
+            </div>
+          </div>
+        </div>
+        <div id="importerStatus" role="status" aria-live="polite"></div>
+      </section>
     </main>
 
     <!-- Flashcard Study View -->
@@ -1719,8 +1772,9 @@ body[data-lamp-theme="ps2"] { --lamp-bg: radial-gradient(circle at 50% 40%, #1d2
 
   function switchView(viewName) {
     $("builderView").style.display = viewName === "builder" ? "grid" : "none";
-    $("builderToolbar").style.display = viewName === "builder" ? "flex" : "none";
+    $("builderToolbar").style.display = (viewName === "builder" || viewName === "importer") ? "flex" : "none";
     $("deckMetaBar").style.display = viewName === "builder" ? "flex" : "none";
+    $("importerView").style.display = viewName === "importer" ? "block" : "none";
     $("flashcardView").style.display = viewName === "flashcards" ? "block" : "none";
     $("quizView").style.display = viewName === "quiz" ? "block" : "none";
   }
@@ -2056,6 +2110,151 @@ body[data-lamp-theme="ps2"] { --lamp-bg: radial-gradient(circle at 50% 40%, #1d2
     if (lastMissed.length) prepareQuiz(lastMissed);
   });
   $("retakeQuizBtn").addEventListener("click", () => prepareQuiz(quizDeck));
+
+  // Question-to-JSON builder, integrated with the active flashcard deck.
+  const importerSample = `1.1 A; 1.2 B; 1.3 D;
+
+Review Question 1.1
+
+The _______ is an information system that allows users to request documents through URLs.
+
+A) web
+B) computer
+C) Internet
+D) website
+
+Review Question 1.2
+
+Firefox, Chrome, and Safari are examples of ___________.
+
+A) server software
+B) client software
+C) Internet
+D) website
+
+Review Question 1.3
+
+www.google.com is an example of ___________.
+
+A) web
+B) client software
+C) Internet
+D) URL.`;
+
+  function parseImporterAnswerKey(text) {
+    const answerMap = {};
+    const pattern = /(\d+\.\d+)\s*([A-D])\b/gi;
+    let match;
+    while ((match = pattern.exec(text)) !== null) answerMap[match[1]] = match[2].toUpperCase();
+    return answerMap;
+  }
+
+  function createImportedDeck() {
+    const source = $("importerSource").value;
+    const answerMap = parseImporterAnswerKey(source);
+    const headings = [...source.matchAll(/Review\s+Question\s+(\d+\.\d+)\s*/gi)];
+    if (!headings.length) throw new Error('No “Review Question 1.1” headings were found.');
+
+    const cards = [];
+    const problems = [];
+    headings.forEach((heading, index) => {
+      const start = heading.index + heading[0].length;
+      const end = index + 1 < headings.length ? headings[index + 1].index : source.length;
+      const block = source.slice(start, end).trim();
+      const optionPattern = /^\s*([A-D])\s*[\).]\s*(.*?)\s*$/gm;
+      const choices = {};
+      let firstChoice = -1;
+      let option;
+      while ((option = optionPattern.exec(block)) !== null) {
+        if (firstChoice < 0) firstChoice = option.index;
+        choices[option[1].toUpperCase()] = option[2].trim();
+      }
+      const question = (firstChoice < 0 ? block : block.slice(0, firstChoice)).trim();
+      const correct = answerMap[heading[1]];
+      if (!question) { problems.push(`${heading[1]}: question text is missing.`); return; }
+      if (!correct) { problems.push(`${heading[1]}: no answer-key entry found.`); return; }
+      if (!choices[correct]) { problems.push(`${heading[1]}: answer ${correct} has no matching choice.`); return; }
+      const wrongLetters = ["A","B","C","D"].filter(letter => letter !== correct && choices[letter]);
+      if (wrongLetters.length !== 3) { problems.push(`${heading[1]}: expected four choices; found ${Object.keys(choices).length}.`); return; }
+      cards.push({
+        CardNumber: cards.length + 1,
+        Question: question.replace(/\s+/g, " "),
+        Answer: choices[correct],
+        Wrong1: choices[wrongLetters[0]],
+        Wrong2: choices[wrongLetters[1]],
+        Wrong3: choices[wrongLetters[2]]
+      });
+    });
+    if (problems.length) throw new Error(problems.join("\n"));
+    if (!cards.length) throw new Error("No valid questions were found.");
+    return { DeckName: $("importerDeckName").value.trim() || "My Quiz Deck", Cards: cards };
+  }
+
+  function buildImporterJson() {
+    try {
+      const deck = createImportedDeck();
+      $("importerOutput").value = JSON.stringify(deck, null, 2);
+      $("importerStatus").className = "";
+      $("importerStatus").textContent = `Successfully built ${deck.Cards.length} cards.`;
+      return deck;
+    } catch (error) {
+      $("importerOutput").value = "";
+      $("importerStatus").className = "error";
+      $("importerStatus").textContent = error.message;
+      return null;
+    }
+  }
+
+  $("openJsonBuilderBtn").addEventListener("click", () => switchView("importer"));
+  $("importerBackBtn").addEventListener("click", () => switchView("builder"));
+  $("buildJsonBtn").addEventListener("click", buildImporterJson);
+  $("loadImporterSampleBtn").addEventListener("click", () => {
+    $("importerSource").value = importerSample;
+    $("importerStatus").className = "";
+    $("importerStatus").textContent = "Sample loaded. Click Build JSON.";
+  });
+  $("clearImporterBtn").addEventListener("click", () => {
+    $("importerSource").value = "";
+    $("importerOutput").value = "";
+    $("importerStatus").textContent = "";
+    $("importerStatus").className = "";
+  });
+  $("copyImporterJsonBtn").addEventListener("click", async () => {
+    if (!$("importerOutput").value) { toast("Build the JSON first."); return; }
+    try {
+      await navigator.clipboard.writeText($("importerOutput").value);
+      toast("JSON copied to clipboard.");
+    } catch {
+      $("importerOutput").focus();
+      $("importerOutput").select();
+      toast("Select the JSON output and copy it manually.");
+    }
+  });
+  $("downloadImporterJsonBtn").addEventListener("click", () => {
+    if (!$("importerOutput").value) { toast("Build the JSON first."); return; }
+    const blob = new Blob([$("importerOutput").value], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const safeName = ($("importerDeckName").value.trim() || "quiz-deck").replace(/[^a-z0-9-_]+/gi, "-");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeName}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+  $("useImporterDeckBtn").addEventListener("click", () => {
+    let deck;
+    try {
+      deck = $("importerOutput").value ? JSON.parse($("importerOutput").value) : buildImporterJson();
+      if (!deck) return;
+      loadDeckObject(deck);
+      $("deckName").value = masterDeck.DeckName;
+      switchView("builder");
+      toast("Question set imported into the Flashcard Builder.");
+    } catch (error) {
+      $("importerStatus").className = "error";
+      $("importerStatus").textContent = error.message;
+    }
+  });
 
   renderLists();
 })();
